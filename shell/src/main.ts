@@ -1,11 +1,13 @@
 /**
  * Android shell bootstrap. Runs before the TV client and:
  *  1. answers backend requests on-device (no server needed),
- *  2. maps webOS.platformBack() to the native shell,
+ *  2. wires Back, media keys, keep-screen-on and playback gestures,
  *  3. points fresh/unconfigured installs at the on-device backend,
  *  4. then starts the TV client.
  */
 import { EMBEDDED_BACKEND_URL, installEmbeddedBackend } from './embedded-backend';
+import { installPlayerGestures } from './player-gestures';
+import { installTvPlatform } from './tv-platform';
 
 const USER_DB = 'iptvnator-tv-user-data';
 const USER_DB_VERSION = 1;
@@ -13,15 +15,6 @@ const USER_DB_VERSION = 1;
 interface StoredUserData {
     version: number;
     data: Record<string, unknown>;
-}
-
-function installBackShim(): void {
-    const w = window as unknown as {
-        webOS?: { platformBack?: () => void };
-        IptvnatorAndroid?: { exitApp(): void };
-    };
-    if (w.webOS?.platformBack) return;
-    w.webOS = { platformBack: () => w.IptvnatorAndroid?.exitApp() };
 }
 
 /**
@@ -65,5 +58,6 @@ function startClient(): void {
 }
 
 installEmbeddedBackend();
-installBackShim();
+installPlayerGestures();
+installTvPlatform();
 ensureEmbeddedBackend().finally(startClient);

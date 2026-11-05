@@ -1,11 +1,15 @@
 package com.iptvnator.androidtv.sample;
 
 import android.os.Bundle;
+import android.view.WindowManager;
 import android.webkit.JavascriptInterface;
 import android.webkit.WebSettings;
 import android.webkit.WebView;
 
 import androidx.activity.OnBackPressedCallback;
+import androidx.core.view.WindowCompat;
+import androidx.core.view.WindowInsetsCompat;
+import androidx.core.view.WindowInsetsControllerCompat;
 
 import com.getcapacitor.BridgeActivity;
 
@@ -39,6 +43,23 @@ public class MainActivity extends BridgeActivity {
             );
     }
 
+    @Override
+    public void onWindowFocusChanged(boolean hasFocus) {
+        super.onWindowFocusChanged(hasFocus);
+        if (hasFocus) enterImmersiveMode();
+    }
+
+    /** A 10-foot media UI: hide status and navigation bars; swipe from an edge reveals them. */
+    private void enterImmersiveMode() {
+        WindowCompat.setDecorFitsSystemWindows(getWindow(), false);
+        WindowInsetsControllerCompat controller =
+            WindowCompat.getInsetsController(getWindow(), getWindow().getDecorView());
+        controller.setSystemBarsBehavior(
+            WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
+        );
+        controller.hide(WindowInsetsCompat.Type.systemBars());
+    }
+
     private static void configureWebView(WebView webView) {
         WebSettings settings = webView.getSettings();
         // The TV client is laid out for a 1920x1080 CSS viewport (LG webOS).
@@ -56,6 +77,18 @@ public class MainActivity extends BridgeActivity {
         @JavascriptInterface
         public void exitApp() {
             runOnUiThread(() -> moveTaskToBack(true));
+        }
+
+        /** Keeps the display awake only while a video is actually playing. */
+        @JavascriptInterface
+        public void setKeepScreenOn(boolean on) {
+            runOnUiThread(() -> {
+                if (on) {
+                    getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
+                } else {
+                    getWindow().clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
+                }
+            });
         }
     }
 }
