@@ -20,6 +20,7 @@ import { installSeekBar } from './seek-bar';
 import { installControlsVisibility } from './controls-visibility';
 import { installRemoteKeys } from './remote-keys';
 import { installTvPlatform } from './tv-platform';
+import { installTouchHints } from './touch-hints';
 
 const USER_DB = 'iptvnator-tv-user-data';
 const USER_DB_VERSION = 1;
@@ -88,5 +89,6 @@ whenBodyReady(() => {
     installSeekBar();
     installControlsVisibility();
     installRemoteKeys();
+    installTouchHints();
 });
 ensureEmbeddedBackend().finally(startClient);

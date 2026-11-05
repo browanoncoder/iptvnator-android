@@ -64,6 +64,17 @@ One app for TV, phone, foldable and tablet, with the same navigation everywhere.
 
 ### Fixed
 
+- **Visual polish from an independent screenshot review** on TV, phone, foldable and tablet:
+  the collapsed rail shows clean icons instead of half-clipped label letters; phone
+  landscape keeps Settings on screen; a stronger player scrim keeps the title and time
+  readable over bright pictures, and the "Playback position" caption is gone; on tablets
+  and foldables the time sits above the player buttons so they fit one row; the quick
+  menu is opaque and the speed/seek toast no longer covers it; poster titles stay inside
+  the card and captions show two lines on handhelds; tablet/foldable filters sit 2 × 2
+  so values are not cut off; live channels take one column on phones; remote hints read
+  "Tap: preview · tap again: fullscreen" on touch screens; no blue tap highlight and no
+  focus ring after a tap.
+
 - Remote gestures treated live channels served as finite files as video on demand,
   which blocked the live channel drawer.
 - The open rail could cover the page you had just chosen on TV.

@@ -15,6 +15,7 @@
  * unfolding or resizing in multi-window.
  */
 import { ANDROID_CSS } from './android-css';
+import { POLISH_CSS } from './polish-css';
 
 export type FormFactor = 'tv' | 'handheld';
 export type Orientation = 'portrait' | 'landscape';
@@ -87,7 +88,7 @@ export function installFormFactor(): FormFactor {
     root.classList.add('android-shell', formFactor === 'tv' ? 'form-tv' : 'form-handheld');
     const style = document.createElement('style');
     style.id = 'android-shell-style';
-    style.textContent = ANDROID_CSS;
+    style.textContent = ANDROID_CSS + POLISH_CSS;
     document.head.appendChild(style);
     applyViewport(formFactor);
     // Rotation, fold/unfold and multi-window all surface as a resize.

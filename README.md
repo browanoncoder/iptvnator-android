@@ -217,8 +217,8 @@ The suites cover:
 | Live plays; ↓ and CH− zap stay in fullscreen, also with the controls showing | ✔ | ✔ (plays) | ✔ (plays) |
 | Rotation (phone); fold → cover → unfold; tabletop | | ✔ | ✔ |
 
-Last run: TV 20/20, fold 15/15, unit 52/52, sample portal 13/13, experience audit 81/81 on TV
-and fold (phone 14/14 on an earlier build). The TV suite also passes on a
+Last run: TV 20/20, phone 14/14, fold 15/15, unit 57/57, sample portal 13/13, experience audit
+81/81 on TV, touch audit 101/101 phone, 101/101 tablet, 94/94 fold. The TV suite also passes on a
 real NVIDIA SHIELD Android TV (Android 11, WebView 156) against the mock portal on the LAN:
 `FORM=tv SERIAL=<ip>:5555 MOCK_PORTAL=http://<mac-ip>:3210/stalker_portal/server/load.php`.
 
