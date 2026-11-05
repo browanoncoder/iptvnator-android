@@ -16,10 +16,11 @@ jobs:
     build:
         name: Typecheck, unit tests, debug APK
         runs-on: ubuntu-latest
-        env:
-            IPTVNATOR_DIR: ${{ runner.temp }}/iptvnator
         steps:
             - uses: actions/checkout@v4
+
+            - name: Client checkout location
+              run: echo "IPTVNATOR_DIR=$RUNNER_TEMP/iptvnator" >> "$GITHUB_ENV"
 
             - uses: pnpm/action-setup@v4
 
