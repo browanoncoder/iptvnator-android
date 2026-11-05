@@ -22,9 +22,9 @@ describe('player helpers', () => {
     test('scan accelerates the longer a key is held', () => {
         assert.equal(scanRate(0), 20);
         assert.equal(scanRate(1499), 20);
-        assert.equal(scanRate(1500), 60);
-        assert.equal(scanRate(3999), 60);
-        assert.equal(scanRate(4000), 180);
+        assert.equal(scanRate(1500), 40);
+        assert.equal(scanRate(4500), 160);
+        assert.equal(scanRate(6000), 320);
     });
     test('double-tap sides are the outer thirds', () => {
         assert.equal(tapSide(10, 900), -1);

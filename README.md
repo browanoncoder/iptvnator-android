@@ -100,8 +100,8 @@ fixed width, so the row never shifts while you seek.
 | Open the menu | ← from the content | ☰ |
 | Play / pause | OK | Pause button |
 | Skip ±10 s | tap ← / → | double-tap left / right third |
-| Scan | hold ← / → (20 → 60 → 180 s per second, seeks on release) | drag the seek bar |
-| Scan with the controls showing | hold ← / → (a single press still moves focus) | n/a |
+| Scan | hold ← / → — speeds up like Netflix / Prime: 1× → 5× (a new level every 1.5 s, shown as ⏩ 3×; 20 s → 320 s of video per second), seeks on release | drag the seek bar |
+| Scan with the controls showing | hold ← / → (a single press still moves focus; on the progress bar the steps speed up 1× → 5× too) | n/a |
 | Jump to a point | **0–9**: start, 10% … 90% (5 is the middle); quick menu **Go to** 25 / 50 / 75%; on the progress bar each ← / → moves 2% of the title | drag the seek bar |
 | Speed | **Speed** button in the controls (1× → 1.25× → 1.5× → 2× → 3×) | **Speed** button, or press and hold: 2× while held |
 | Show / hide the controls | ↑ or Info shows them; Back hides them at once | tap shows them, tap again hides them |

@@ -64,6 +64,10 @@ One app for TV, phone, foldable and tablet, with the same navigation everywhere.
 
 ### Fixed
 
+- **Hold ← / → speeds up like Netflix / Prime Video:** 1× → 2× → 3× → 4× → 5×, a new level
+  every 1.5 s, with the level on screen ("⏩ 3×"). Works in the fullscreen player and on the
+  progress bar.
+
 - **Visual polish from an independent screenshot review** on TV, phone, foldable and tablet:
   the collapsed rail shows clean icons instead of half-clipped label letters; phone
   landscape keeps Settings on screen; a stronger player scrim keeps the title and time

@@ -18,6 +18,7 @@
  * previews the target in the OSD and seeks once on release, so holding a key
  * does not flood the provider with range requests.
  */
+import { scanLabel, scanTier } from './scan-speed';
 import { zap, zapDirection } from './channel-zap';
 import { hideControls, revealControls, shouldHideOnBack } from './controls-visibility';
 import { showOsd } from './osd';
@@ -67,11 +68,9 @@ let enter: { at: number; menu: boolean } | undefined;
 let touch: Touch | undefined;
 let hideTimer: ReturnType<typeof setTimeout> | undefined;
 
-/** Scan rate in seconds of media per second held: 20 s/s, then 60 s/s, then 180 s/s. */
+/** Scan rate in seconds of media per second held: 1× → 5× (20 → 320 s/s), see scan-speed.ts. */
 export function scanRate(heldMs: number): number {
-    if (heldMs < 1500) return 20;
-    if (heldMs < 4000) return 60;
-    return 180;
+    return scanTier(heldMs).secondsPerSecond;
 }
 
 /** −1 / +1 for a tap on the left / right third of the screen, 0 for the middle. */
@@ -94,9 +93,9 @@ function progress(v: HTMLVideoElement): [string, number] {
 }
 
 function showScan(v: HTMLVideoElement, current: Scan): void {
-    const icon = current.direction > 0 ? '⏩' : '⏪';
+    const tier = scanTier(performance.now() - current.startedAt);
     showOsd(
-        `${icon} ${signedClock(current.target - current.origin)}`,
+        `${scanLabel(current.direction, tier)}  ${signedClock(current.target - current.origin)}`,
         `${clock(current.target)} / ${clock(v.duration)}`,
         current.target / v.duration
     );
