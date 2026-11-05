@@ -8,6 +8,9 @@
  * set the Cookie / User-Agent headers MAG portals require and is not subject
  * to CORS. Header and URL construction is shared with the real backend.
  */
+import { createChannelLocks, DEFAULT_PIN, markLockedChannels, portalPin } from './channel-lock';
+import { requestPin } from './pin-prompt';
+import { createPagePrefetcher, prefetchKey } from './series-prefetch';
 import parser from 'iptv-playlist-parser';
 import { buildStalkerIdentityRequestContext } from '../../../iptvnator/libs/shared/interfaces/src/lib/stalker-request-identity.util';
 import { buildStalkerRequestUrl } from '../../../iptvnator/libs/shared/interfaces/src/lib/stalker-request-url.util';
@@ -89,7 +92,7 @@ async function stalker(query: Query, signal?: AbortSignal): Promise<RouteResult>
         'skipConnectionGuard',
     ]);
     if (params['action'] === 'handshake' && token) params['token'] = token;
-    const send = async (variant: Record<string, string | number>) => {
+    const send = async (variant: Record<string, string | number>, abort: AbortSignal | undefined = signal) => {
         const identity = buildStalkerIdentityRequestContext({
             macAddress,
             params: variant,
@@ -100,17 +103,62 @@ async function stalker(query: Query, signal?: AbortSignal): Promise<RouteResult>
         if (!macAddress) delete headers['Cookie'];
         const response = await nativeGet(buildStalkerRequestUrl(url, identity.requestParams), {
             headers,
-            signal,
+            signal: abort,
             timeoutMs: variant['action'] === 'create_link' ? TIMEOUT_MS.createLink : TIMEOUT_MS.stalker,
         });
         return response.data;
     };
+    const portal = `${url}|${macAddress}`;
     try {
-        return ok({ action: query.get('action'), payload: withoutSeriesModule(params, await filteredList(url, params, send)) });
+        const blocked = await pinGate(portal, params, send, signal);
+        if (blocked) return blocked;
+        const series = prefetchKey(params);
+        const answer = series
+            ? await episodePages.get(`${url}|${macAddress}|${series}`, Number(params['p'] ?? 1) || 1, (p, abort) => send({ ...params, p }, abort), signal)
+            : await filteredList(url, params, send);
+        return ok({ action: query.get('action'), payload: withoutSeriesModule(params, lockChannels(portal, params, answer)) });
     } catch (error) {
         return providerFailure(error);
     }
 }
+
+/** Password-protected live channels (channel-lock.ts). */
+const channelLocks = createChannelLocks();
+const portalPins = new Map<string, string>();
+
+/** Marks locked channels in live channel lists and remembers them. */
+function lockChannels(portal: string, params: Record<string, string | number>, answer: unknown): unknown {
+    const action = params['action'];
+    if (params['type'] !== 'itv' || (action !== 'get_ordered_list' && action !== 'get_all_channels')) return answer;
+    const { payload, lockedCmds } = markLockedChannels(answer);
+    channelLocks.remember(portal, lockedCmds);
+    return payload;
+}
+
+/** Holds a locked channel's stream link until the parental PIN is entered; an answer when it stays locked. */
+async function pinGate(
+    portal: string,
+    params: Record<string, string | number>,
+    send: (variant: Record<string, string | number>) => Promise<unknown>,
+    signal?: AbortSignal
+): Promise<RouteResult | undefined> {
+    if (params['type'] !== 'itv' || params['action'] !== 'create_link') return undefined;
+    if (!channelLocks.needsPin(portal, String(params['cmd'] ?? ''))) return undefined;
+    let pin = portalPins.get(portal);
+    if (pin === undefined) {
+        pin = await send({ type: 'stb', action: 'get_profile' }).then(portalPin, () => DEFAULT_PIN);
+        portalPins.set(portal, pin);
+    }
+    const expected = pin;
+    if (await requestPin((entered) => entered === expected, signal)) {
+        channelLocks.unlock(portal);
+        return undefined;
+    }
+    return ok({ status: 403, message: 'This channel is locked. Enter the parental PIN to watch it.' });
+}
+
+/** Episode / season pages of the title being opened, fetched ahead (series-prefetch.ts). */
+const episodePages = createPagePrefetcher({ concurrency: 4 });
 
 /** Which category-filter form each portal category answered to (see stalker-category.ts). */
 const categoryForm = new Map<string, number>();

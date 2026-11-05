@@ -141,6 +141,8 @@ describe(`IPTVnator Android (${FORM}, ${SERIAL})`, () => {
     });
 
     test('category picker slides in and fully slides out', async () => {
+        // Phones fold the filters behind one "Filters" button.
+        await device.eval(`(() => { const t = document.querySelector('.filters-toggle'); if (t && t.offsetWidth && t.getAttribute('aria-expanded') !== 'true') t.click(); })()`);
         await device.click('.catalog-filters button.tv-select', '.', 10000);
         await device.waitFor(`!!document.querySelector('.tv-dialog [role="listbox"] button')`);
         await sleep(400);

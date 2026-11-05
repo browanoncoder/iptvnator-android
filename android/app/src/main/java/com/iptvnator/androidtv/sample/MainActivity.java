@@ -19,6 +19,7 @@ import androidx.window.layout.DisplayFeature;
 import androidx.window.layout.FoldingFeature;
 import androidx.window.layout.WindowInfoTracker;
 import androidx.window.layout.WindowLayoutInfo;
+import androidx.core.view.ViewCompat;
 import androidx.core.view.WindowCompat;
 import androidx.core.view.WindowInsetsCompat;
 import androidx.core.view.WindowInsetsControllerCompat;
@@ -61,6 +62,7 @@ public class MainActivity extends BridgeActivity {
             }
         );
         webView.addJavascriptInterface(new AndroidShell(), "IptvnatorAndroid");
+        reportKeyboard(webView);
         getOnBackPressedDispatcher()
             .addCallback(
                 this,
@@ -127,6 +129,28 @@ public class MainActivity extends BridgeActivity {
         }
         String js = "window.dispatchEvent(new CustomEvent('iptvnator-posture',{detail:{fold:" + fold + "}}));";
         getBridge().getWebView().evaluateJavascript(js, null);
+    }
+
+    /**
+     * Edge-to-edge windows are not resized for the on-screen keyboard, so the
+     * page cannot see it. Tell the page when it opens or closes (height in dp)
+     * so search results can stay in view; default inset handling is kept.
+     */
+    private void reportKeyboard(WebView webView) {
+        final float density = getResources().getDisplayMetrics().density;
+        final int[] last = { -1 };
+        ViewCompat.setOnApplyWindowInsetsListener(webView, (view, insets) -> {
+            boolean visible = insets.isVisible(WindowInsetsCompat.Type.ime());
+            int height = visible ? Math.round(insets.getInsets(WindowInsetsCompat.Type.ime()).bottom / density) : 0;
+            if (height != last[0]) {
+                last[0] = height;
+                webView.evaluateJavascript(
+                    "window.dispatchEvent(new CustomEvent('iptvnator-keyboard',{detail:{height:" + height + "}}));",
+                    null
+                );
+            }
+            return ViewCompat.onApplyWindowInsets(view, insets);
+        });
     }
 
     @Override

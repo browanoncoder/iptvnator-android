@@ -56,6 +56,18 @@ async function goTo(label) {
 
 /** Opens the filter called `label` (Category, Sort by, Content) and taps the option. */
 async function pick(label, option, filterText) {
+    // Close the keyboard first, as a person would before reaching for a filter.
+    if (await device.eval(`document.documentElement.classList.contains('keyboard-open')`)) {
+        await device.eval(`document.activeElement?.blur()`);
+        await device.waitFor(`!document.documentElement.classList.contains('keyboard-open')`, 3000).catch(() => undefined);
+        await sleep(300);
+    }
+    // Phones fold the filters behind one button; open it like a finger would.
+    const folded = await device.eval(`(() => { const t = document.querySelector('.filters-toggle'); return !!t && t.offsetWidth > 0 && t.getAttribute('aria-expanded') !== 'true'; })()`);
+    if (folded) {
+        await device.tapOn('.filters-toggle');
+        await sleep(300);
+    }
     const pos = await device.eval(`(() => { const l = [...document.querySelectorAll('main label')].find((l) => l.textContent.trim().startsWith(${JSON.stringify(label)})); const b = l && l.querySelector('button.tv-select'); if (!b) return null; b.scrollIntoView({ block: 'nearest' }); const r = b.getBoundingClientRect(); return { x: r.left + r.width / 2, y: r.top + r.height / 2 }; })()`);
     if (!pos) throw new Error(`no "${label}" filter`);
     await device.tap(pos.x, pos.y);
@@ -275,13 +287,15 @@ await scenario('search: type and filter', async (check) => {
     const t = Date.now();
     await device.waitFor(`${posters} > 0`, 15000);
     check(`results within ${BUDGET.contentMs} ms`, Date.now() - t <= BUDGET.contentMs, `${Date.now() - t} ms`);
-    check('keyboard does not hide the results', await device.eval(`(() => { const c = document.querySelector('main .poster-card'); const r = c && c.getBoundingClientRect(); return !!r && r.top < innerHeight && r.bottom > 0; })()`));
+    check('keyboard does not hide the results', await device.eval(`(() => { const c = document.querySelector('main .poster-card'); const r = c && c.getBoundingClientRect(); const visible = innerHeight * (document.documentElement.classList.contains('keyboard-open') ? 0.55 : 1); return !!r && r.top + 40 < visible && r.bottom > 0; })()`));
     await shot('search-results');
     await layoutChecks(check);
     await device.eval(`document.activeElement?.blur()`);
     await pick('Content', '^Live TV$');
     await sleep(1500);
     check('switching content type keeps the page usable', await device.eval(`!document.querySelector('main [role="alert"]')`));
+    const names = await device.eval(`[...document.querySelectorAll('main .station-grid button, main .station-card')].map((b) => b.textContent.trim().toLowerCase())`);
+    check('the search still applies to Live TV', names.every((n) => n.includes('sample film')), `${names.length} channels listed for "sample film"`);
     await shot('search-live');
 });
 

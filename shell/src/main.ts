@@ -21,6 +21,8 @@ import { installControlsVisibility } from './controls-visibility';
 import { installRemoteKeys } from './remote-keys';
 import { installTvPlatform } from './tv-platform';
 import { installTouchHints } from './touch-hints';
+import { installPinPrompt } from './pin-prompt';
+import { installFilterPanel } from './filter-panel';
 
 const USER_DB = 'iptvnator-tv-user-data';
 const USER_DB_VERSION = 1;
@@ -77,6 +79,7 @@ function whenBodyReady(run: () => void): void {
 
 installEmbeddedBackend();
 const formFactor = installFormFactor();
+installPinPrompt();
 installQuickMenu();
 installPlayerGestures();
 installTvPlatform();
@@ -90,5 +93,6 @@ whenBodyReady(() => {
     installControlsVisibility();
     installRemoteKeys();
     installTouchHints();
+    installFilterPanel();
 });
 ensureEmbeddedBackend().finally(startClient);

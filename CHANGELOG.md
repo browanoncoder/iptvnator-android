@@ -64,6 +64,25 @@ One app for TV, phone, foldable and tablet, with the same navigation everywhere.
 
 ### Fixed
 
+- **Password-protected channels ask for the parental PIN.** Channels the portal marks as locked
+  (adult) show a 🔒 in lists, the guide and search; opening one shows a PIN pad (remote digits,
+  arrows + OK, or taps). The PIN is the account's parental password from the portal (0000 when
+  the portal sends none), and a correct PIN unlocks that portal's locked channels until the app
+  closes. Movies and series are not affected. The sample portal has two locked channels (PIN 1234).
+
+- **Long series open about 3× faster:** the on-device backend fetches a season's remaining
+  episode pages four at a time as soon as the first page arrives (a 74-page daily series on
+  a real portal: about 21 s → 6 s before the episode list shows).
+- **Phones: filters fold behind one "Filters" button** next to the search field, which counts
+  the filters that are on and closes after a pick; the source picker becomes a compact chip
+  beside the page title. On every touch screen the source picker and filters step aside
+  while the keyboard is up, so search results stay in view (they were hidden on foldables).
+- **Detail page on touch screens** shows the poster (above the title on phones, beside it on
+  tablets and foldables) and no longer shows the source picker.
+- **TV guide** is fully opaque (the live page no longer shows through) and its channel column
+  is wider, so channel names fit.
+- The sample portal applies the search text to live channels, like real portals.
+
 - **Hold ← / → speeds up like Netflix / Prime Video:** 1× → 2× → 3× → 4× → 5×, a new level
   every 1.5 s, with the level on screen ("⏩ 3×"). Works in the fullscreen player and on the
   progress bar.

@@ -80,6 +80,8 @@ function applyViewport(formFactor: FormFactor): void {
     root.classList.toggle('portrait', orientation === 'portrait');
     root.classList.toggle('landscape', orientation === 'landscape');
     for (const name of ['compact', 'medium', 'expanded'] as const) root.classList.toggle(`size-${name}`, name === size);
+    // Phones (portrait, or landscape on a short screen) fold the catalog filters.
+    root.classList.toggle('filters-fold', formFactor !== 'tv' && (size === 'compact' || layout === LAYOUT.shortLandscape));
 }
 
 export function installFormFactor(): FormFactor {

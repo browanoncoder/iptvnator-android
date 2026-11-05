@@ -119,7 +119,11 @@ const CHANNELS = Array.from({ length: 24 }, (_, i) => ({
     use_http_tmp_link: '1',
     use_load_balancing: '0',
     logo: '',
+    // The last two are password-protected (adult) channels, like on real portals.
+    censored: i >= 22 ? '1' : '0',
 }));
+/** The account's parental PIN, as get_profile reports it. */
+const PARENT_PASSWORD = '1234';
 const LIVE_GENRES = [
     { id: '*', title: 'All' },
     { id: '1', title: 'SAMPLE | NEWS' },
@@ -165,7 +169,7 @@ function stalker(q, origin) {
     const type = q.get('type');
     const action = q.get('action');
     if (type === 'stb' && action === 'handshake') return { js: { token: 'SAMPLETOKEN0000000000000000000000', random: '0123456789abcdef0123456789abcdef01234567', not_valid: 0 } };
-    if (type === 'stb' && action === 'get_profile') return { js: { id: '1', name: 'Sample STB', status: 0, blocked: '0', watchdog_timeout: 120, timeslot: 15, locale: 'en' } };
+    if (type === 'stb' && action === 'get_profile') return { js: { id: '1', name: 'Sample STB', status: 0, blocked: '0', watchdog_timeout: 120, timeslot: 15, locale: 'en', parent_password: PARENT_PASSWORD } };
     if (type === 'series') return { js: false, text: 'generated in: 0.016s' };
     if (type === 'vod' && action === 'get_categories') return { js: catalog.categories };
     if (type === 'vod' && action === 'get_ordered_list') return page(q.get('movie_id') ? seriesRows(q) : vodRows(q), q.get('p'));
@@ -173,7 +177,9 @@ function stalker(q, origin) {
     if (type === 'itv' && action === 'get_all_channels') return { js: { total_items: CHANNELS.length, max_page_items: CHANNELS.length, data: CHANNELS } };
     if (type === 'itv' && action === 'get_ordered_list') {
         const genre = q.get('genre') ?? '*';
-        return page(genre === '*' ? CHANNELS : CHANNELS.filter((c) => c.tv_genre_id === genre), q.get('p'));
+        const search = (q.get('search') ?? '').toLowerCase();
+        const inGenre = genre === '*' ? CHANNELS : CHANNELS.filter((c) => c.tv_genre_id === genre);
+        return page(search ? inGenre.filter((c) => c.name.toLowerCase().includes(search)) : inGenre, q.get('p'));
     }
     if (action === 'create_link') return { js: { cmd: type === 'itv' ? `${origin}/media/live.m3u8` : `${origin}/media/vod/index.m3u8`, streamer_id: '1', load: '', error: '' } };
     if (action === 'get_short_epg') return { js: [] };

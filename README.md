@@ -100,6 +100,7 @@ fixed width, so the row never shifts while you seek.
 | Open the menu | ← from the content | ☰ |
 | Play / pause | OK | Pause button |
 | Skip ±10 s | tap ← / → | double-tap left / right third |
+| Password-protected channels | 🔒 in front of the name; OK opens a PIN pad (digit keys or arrows + OK, Back cancels) | 🔒 in front of the name; tap opens a PIN pad |
 | Scan | hold ← / → — speeds up like Netflix / Prime: 1× → 5× (a new level every 1.5 s, shown as ⏩ 3×; 20 s → 320 s of video per second), seeks on release | drag the seek bar |
 | Scan with the controls showing | hold ← / → (a single press still moves focus; on the progress bar the steps speed up 1× → 5× too) | n/a |
 | Jump to a point | **0–9**: start, 10% … 90% (5 is the middle); quick menu **Go to** 25 / 50 / 75%; on the progress bar each ← / → moves 2% of the title | drag the seek bar |
