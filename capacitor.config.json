@@ -1,0 +1,7 @@
+{
+  "appId": "com.iptvnator.androidtv.sample",
+  "appName": "IPTVnator TV",
+  "webDir": "www",
+  "server": { "androidScheme": "http", "cleartext": true },
+  "android": { "allowMixedContent": true }
+}
