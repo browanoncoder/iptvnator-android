@@ -111,7 +111,7 @@ fixed width, so the row never shifts while you seek.
 | Mute | Mute key toggles the player's sound when the remote sends it to apps; the TV's own mute and volume stay with Android | system volume |
 | Subtitles / audio language | Captions and Audio keys switch tracks when the stream has them | n/a |
 | Media keys | ⏯ ⏪ ⏩ ⏹ work everywhere | n/a |
-| Back | hides the player controls, then closes the top layer: panel, menu, player, then screen | system Back |
+| Back | hides the player controls, then closes the top layer: panel, menu, player, then screen; on Home it asks "Press Back again to exit" | system Back |
 
 Apart from the held ← / → and ↑/↓ on live TV, remote gestures act only while the player
 controls are hidden, so normal focus navigation is untouched whenever they are on screen.
@@ -217,8 +217,8 @@ The suites cover:
 | Live plays; ↓ and CH− zap stay in fullscreen, also with the controls showing | ✔ | ✔ (plays) | ✔ (plays) |
 | Rotation (phone); fold → cover → unfold; tabletop | | ✔ | ✔ |
 
-Last run: TV 20/20, fold 15/15, unit 45/45, sample portal 13/13 (phone 14/14 on the
-previous build). The TV suite also passes on a
+Last run: TV 20/20, fold 15/15, unit 52/52, sample portal 13/13, experience audit 81/81 on TV
+and fold (phone 14/14 on an earlier build). The TV suite also passes on a
 real NVIDIA SHIELD Android TV (Android 11, WebView 156) against the mock portal on the LAN:
 `FORM=tv SERIAL=<ip>:5555 MOCK_PORTAL=http://<mac-ip>:3210/stalker_portal/server/load.php`.
 
@@ -229,6 +229,20 @@ catalog, 14 per page), the category quirk some portals have (`category=<id>&genr
 answers an empty list, `genre=0` filters), a Series module that answers `js:false`, a
 20-minute HLS movie with a frame counter for checking seeks, and live channels on a
 rolling HLS window. It generates its video with ffmpeg on first start (into `build/`).
+
+**Experience audit.** `tests/e2e/ux-audit.mjs` drives the app through every scenario
+against the sample portal the way a viewer would (setup, browse and switch categories, play,
+every remote key in the player, resume, series, live zapping and guide, search, Back) and
+measures what a viewer feels: time to content and to picture, key response (and keys that do
+nothing), layout shifts that were not caused by the viewer, focus lost on TV, and error banners
+that should not be there. It writes `ux-audit.md` / `.json` with a score and budgets
+(content ≤ 2.5 s, picture ≤ 4 s, key ≤ 150 ms, shift ≤ 0.05):
+
+```sh
+node tests/sample-portal/server.mjs &
+OUT=build/ux SERIAL=emulator-5556 node tests/e2e/ux-audit.mjs                 # TV
+OUT=build/ux-fold SERIAL=emulator-5558 CDP_PORT=9391 node tests/e2e/ux-audit.mjs
+```
 
 ```sh
 node tests/sample-portal/server.mjs   # http://0.0.0.0:3211/stalker_portal/server/load.php

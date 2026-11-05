@@ -25,6 +25,9 @@ export function seekTarget(from: number, direction: 1 | -1, duration: number): n
 }
 
 let lastStep = 0;
+/** The target of the last press: rapid presses build on it, not on a lagging slider or video. */
+let pending: { target: number; at: number } | undefined;
+const PENDING_MS = 1500;
 
 function onKey(event: KeyboardEvent): void {
     const slider = event.target instanceof HTMLInputElement && event.target.matches(SLIDER) ? event.target : null;
@@ -37,9 +40,11 @@ function onKey(event: KeyboardEvent): void {
     const now = performance.now();
     if (event.repeat && now - lastStep < REPEAT_MS) return;
     lastStep = now;
-    // Rapid presses build on the slider's pending value, not the lagging video.
-    const from = Number(slider.value) || v.currentTime;
+    // Rapid presses build on the previous target; otherwise start from the
+    // video itself (the slider's value can lag behind it).
+    const from = pending && now - pending.at < PENDING_MS ? pending.target : v.currentTime;
     const target = seekTarget(from, event.key === 'ArrowRight' ? 1 : -1, v.duration);
+    pending = { target, at: now };
     slider.value = String(target);
     slider.dispatchEvent(new Event('input', { bubbles: true }));
     const percent = Math.round((target / v.duration) * 100);

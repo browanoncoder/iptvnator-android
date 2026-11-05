@@ -1,13 +1,17 @@
 /**
  * Android platform integration for the TV client (written for LG webOS).
  *
- * - Back: webOS.platformBack() sends the app to the background.
+ * - Back: webOS.platformBack() (Back on Home) first shows "Press Back again
+ *   to exit"; a second press sends the app to the background.
  * - Media keys: Android remote/keyboard media keys are translated to the webOS
  *   key codes the client already handles (play 415, pause 19, stop 413,
  *   rewind 412, fast-forward 417).
  * - Screen saver: the screen is kept on only while a video is playing, so the
  *   Android TV ambient mode / phone screen timeout cannot interrupt playback.
  */
+import { createExitGuard, EXIT_WINDOW_MS } from './exit-guard';
+import { showOsd } from './osd';
+
 interface AndroidShell {
     exitApp(): void;
     setKeepScreenOn(on: boolean): void;
@@ -22,7 +26,13 @@ function shell(): AndroidShell | undefined {
 function installBack(): void {
     const w = window as unknown as { webOS?: { platformBack?: () => void } };
     if (w.webOS?.platformBack) return;
-    w.webOS = { platformBack: () => shell()?.exitApp() };
+    const guard = createExitGuard();
+    w.webOS = {
+        platformBack: () => {
+            if (guard(Date.now()) === 'exit') shell()?.exitApp();
+            else showOsd('Press Back again to exit', undefined, undefined, EXIT_WINDOW_MS);
+        },
+    };
 }
 
 function activeVideo(): HTMLVideoElement | null {

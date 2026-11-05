@@ -8,12 +8,25 @@
  */
 import { showOsd } from './osd';
 import { currentSpeed, nextSpeed, setSpeed } from './playback-speed';
-import { isOnDemand, video } from './player-dom';
+import { isLivePlayback, isOnDemand, video } from './player-dom';
 
 export const SPEED_BUTTON_ID = 'android-speed';
 
 export function speedLabel(rate: number): string {
     return `${rate}× speed`;
+}
+
+/**
+ * The client draws −10 / +10 sec only for movies and episodes. Placing the
+ * button as soon as they appear (not when the duration loads, ~1 s later)
+ * keeps the row from re-wrapping under the viewer on narrower screens.
+ */
+export function wantsSpeedButton(labels: readonly string[], onDemand: boolean): boolean {
+    return onDemand || labels.some((label) => /^\+10\b/.test(label.trim()));
+}
+
+function rowLabels(actions: Element): string[] {
+    return Array.from(actions.querySelectorAll('button')).map((b) => b.textContent ?? '');
 }
 
 function refresh(button: HTMLButtonElement): void {
@@ -27,8 +40,8 @@ function createButton(): HTMLButtonElement {
     button.id = SPEED_BUTTON_ID;
     button.type = 'button';
     button.addEventListener('click', () => {
+        if (isLivePlayback()) return;
         const v = video();
-        if (!isOnDemand(v)) return;
         const rate = nextSpeed(currentSpeed());
         setSpeed(v, rate);
         refresh(button);
@@ -53,7 +66,7 @@ export function installSpeedButton(): void {
     const sync = () => {
         queued = false;
         const actions = document.querySelector('.player-bottom .actions');
-        if (actions && isOnDemand(video())) {
+        if (actions && !isLivePlayback() && wantsSpeedButton(rowLabels(actions), isOnDemand(video()))) {
             place(actions, button);
             refresh(button);
         } else if (button.isConnected) {

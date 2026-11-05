@@ -74,7 +74,7 @@ function buildCatalog() {
         const language = LANGUAGES[i % LANGUAGES.length];
         const kind = KINDS[Math.floor(i / LANGUAGES.length) % KINDS.length];
         const id = String(i === 0 ? 1 : 20 + i * 3);
-        const title = i === 125 ? 'SPORTING EVENTS' : `${language} | ${kind}`;
+        const title = categories.length === 125 ? 'SPORTING EVENTS' : `${language} | ${kind}`;
         categories.push({ id, title, alias: title.replace(/\W+/g, '_'), censored: 0 });
         // One empty category, like real catalogs have.
         const count = i === 7 ? 0 : 12 + ((i * 7) % 40);

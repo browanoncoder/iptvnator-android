@@ -53,6 +53,10 @@ One app for TV, phone, foldable and tablet, with the same navigation everywhere.
 - `tests/sample-portal/server.mjs`: a local Stalker portal that reproduces real-provider
   behaviour (126 categories, category quirk, no Series module, long HLS movies, live HLS)
   so most portal testing needs no provider account.
+- `tests/e2e/ux-audit.mjs`: an experience audit that plays every scenario against the sample
+  portal and measures time to picture, key response, layout shifts, focus loss and false
+  error banners against budgets.
+- Back on Home asks "Press Back again to exit" instead of leaving the app at once.
 
 ### Fixed
 
@@ -74,6 +78,11 @@ One app for TV, phone, foldable and tablet, with the same navigation everywhere.
 - Resuming a movie made the controls jump and flashed its opening seconds while "Restoring
   saved position…" was shown; the message now floats below the bar and the picture stays black
   until it is at the saved spot.
+- On phones and foldables the player's button row re-wrapped about a second after a movie
+  started (the Speed button arrived with the duration), pushing the progress bar up; it is now
+  in place from the first frame.
+- Pressing → on the progress bar after other skips could jump backwards (it started from a
+  stale bar position); it now steps from where the video is.
 - The Speed button changed width between 1× and 1.25×, shifting ♡ Save; the time readout fits
   hours (`1:05:12 / 1:55:47`).
 
