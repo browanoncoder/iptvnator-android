@@ -19,8 +19,10 @@ jobs:
         steps:
             - uses: actions/checkout@v4
 
+            # The shell imports IPTVnator's shared request builders from ../iptvnator,
+            # so the pinned client is checked out next to this repository.
             - name: Client checkout location
-              run: echo "IPTVNATOR_DIR=$RUNNER_TEMP/iptvnator" >> "$GITHUB_ENV"
+              run: echo "IPTVNATOR_DIR=$(dirname "$GITHUB_WORKSPACE")/iptvnator" >> "$GITHUB_ENV"
 
             - uses: pnpm/action-setup@v4
 
@@ -38,14 +40,14 @@ jobs:
             - name: Install shell dependencies
               run: pnpm install --frozen-lockfile
 
+            - name: Build the pinned IPTVnator TV client
+              run: node scripts/build-client.mjs --checkout
+
             - name: Typecheck
               run: pnpm run typecheck
 
             - name: Unit tests
               run: pnpm run test:unit
-
-            - name: Build the pinned IPTVnator TV client
-              run: node scripts/build-client.mjs --checkout
 
             - name: Build debug APK
               run: pnpm run build:apk

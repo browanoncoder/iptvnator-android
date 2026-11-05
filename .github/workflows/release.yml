@@ -15,8 +15,10 @@ jobs:
         steps:
             - uses: actions/checkout@v4
 
+            # The shell imports IPTVnator's shared request builders from ../iptvnator,
+            # so the pinned client is checked out next to this repository.
             - name: Client checkout location
-              run: echo "IPTVNATOR_DIR=$RUNNER_TEMP/iptvnator" >> "$GITHUB_ENV"
+              run: echo "IPTVNATOR_DIR=$(dirname "$GITHUB_WORKSPACE")/iptvnator" >> "$GITHUB_ENV"
 
             - name: Tag must match package.json
               run: |
@@ -41,9 +43,9 @@ jobs:
                   cache: gradle
 
             - run: pnpm install --frozen-lockfile
+            - run: node scripts/build-client.mjs --checkout
             - run: pnpm run typecheck
             - run: pnpm run test:unit
-            - run: node scripts/build-client.mjs --checkout
 
             - name: Restore the release keystore
               env:
