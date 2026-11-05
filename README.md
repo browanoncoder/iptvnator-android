@@ -11,11 +11,15 @@ Verified on an Android TV emulator (API 34) against a Stalker portal:
 - VOD episodes and live HLS channels play at 1080p in the system WebView
 - Remote Back navigates inside the app; Back at the top level backgrounds it
 
-Known limitation: portal requests still go through an IPTVnator web backend
-(`apps/web-backend`), the same as on webOS.
+- **Standalone**: no server needed. Backend routes are answered on-device and
+  portal requests go out through Android's native HTTP stack
 
 ## What the shell adds
 
+- On-device backend (`shell/src/embedded-backend.ts`): the six routes the TV
+  client uses (`/tv/connection`, `/tv/connection/check`, `/provider-targets`,
+  `/stalker`, `/xtream`, `/parse`), reusing IPTVnator's shared Stalker header/URL
+  builders so portals see the same requests as from the desktop app
 - Leanback launcher entry, TV banner, touchscreen not required
 - Fixed 1920x1080 CSS viewport, matching the layout the TV client targets
 - Android Back key mapped to the client's own Back handling (`BrowserBack`)
@@ -35,17 +39,10 @@ JAVA_HOME="/Applications/Android Studio.app/Contents/jbr/Contents/Home" npm run 
 # -> android/app/build/outputs/apk/debug/app-debug.apk
 ```
 
-## Run the backend
+## Optional remote backend
 
-From the iptvnator checkout (the emulator reaches the host at `10.0.2.2`):
-
-```sh
-CLIENT_URL=http://localhost PORT=3333 IPTVNATOR_PROXY_ALLOW_PRIVATE_NETWORKS=1 \
-  TSX_TSCONFIG_PATH=tsconfig.base.json node --import tsx apps/web-backend/src/main.ts
-```
-
-Then set the backend to `http://10.0.2.2:3333` (emulator) or `http://<mac-ip>:3333`
-(real device) in the app's Settings.
+Fresh installs use the on-device backend (`http://iptvnator.device`). Entering
+another backend URL in Settings switches the app to that server instead.
 
 ## License
 

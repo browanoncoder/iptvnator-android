@@ -10,3 +10,4 @@ android/capacitor-cordova-android-plugins/
 *.apk
 .DS_Store
 .omc/
+build/
