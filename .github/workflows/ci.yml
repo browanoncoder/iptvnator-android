@@ -1,0 +1,56 @@
+name: CI
+
+on:
+    push:
+        branches: [main]
+    pull_request:
+
+permissions:
+    contents: read
+
+concurrency:
+    group: ci-${{ github.ref }}
+    cancel-in-progress: true
+
+jobs:
+    build:
+        name: Typecheck, unit tests, debug APK
+        runs-on: ubuntu-latest
+        env:
+            IPTVNATOR_DIR: ${{ runner.temp }}/iptvnator
+        steps:
+            - uses: actions/checkout@v4
+
+            - uses: pnpm/action-setup@v4
+
+            - uses: actions/setup-node@v4
+              with:
+                  node-version: 24
+                  cache: pnpm
+
+            - uses: actions/setup-java@v4
+              with:
+                  distribution: temurin
+                  java-version: 21
+                  cache: gradle
+
+            - name: Install shell dependencies
+              run: pnpm install --frozen-lockfile
+
+            - name: Typecheck
+              run: pnpm run typecheck
+
+            - name: Unit tests
+              run: pnpm run test:unit
+
+            - name: Build the pinned IPTVnator TV client
+              run: node scripts/build-client.mjs --checkout
+
+            - name: Build debug APK
+              run: pnpm run build:apk
+
+            - uses: actions/upload-artifact@v4
+              with:
+                  name: iptvnator-android-debug-${{ github.sha }}
+                  path: android/app/build/outputs/apk/debug/app-debug.apk
+                  retention-days: 14

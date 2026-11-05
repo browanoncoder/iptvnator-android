@@ -1,7 +1,7 @@
 // Copies the built TV client into www/ and wires in the Android shell bundle.
 import { cpSync, readFileSync, rmSync, writeFileSync, existsSync } from 'node:fs';
 
-const SOURCE = '../iptvnator/dist/apps/tv';
+const SOURCE = `${process.env.IPTVNATOR_DIR ?? '../iptvnator'}/dist/apps/tv`;
 if (!existsSync(`${SOURCE}/index.html`)) {
     throw new Error(`Build the TV client first: ${SOURCE}/index.html is missing`);
 }

@@ -168,7 +168,8 @@ async function parsePlaylist(query: Query, signal?: AbortSignal): Promise<RouteR
     }
 }
 
-async function route(method: string, url: URL, body: unknown, signal?: AbortSignal): Promise<RouteResult> {
+/** Answers one embedded-backend request; exported for tests. */
+export async function route(method: string, url: URL, body: unknown, signal?: AbortSignal): Promise<RouteResult> {
     switch (`${method} ${url.pathname}`) {
         case 'GET /tv/connection':
             return ok({ service: 'iptvnator', protocol: 1, pairing: true, auth: 'none' });
