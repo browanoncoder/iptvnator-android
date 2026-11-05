@@ -15,7 +15,7 @@ One app for TV, phone, foldable and tablet, with the same navigation everywhere.
 - **Slide-in side panels** for every picker (movie and series categories, seasons,
   sort order, source). They slide in from the right and slide back out.
 - **Player quick menu**, the same sheet on TV and phone: speed (1×–3×), jump ±30 s / ±5 min
-  and start over for movies and episodes; channels, TV guide and programme for live TV.
+  (the menu stays open so a jump can be repeated) and go to start / 25% / 50% / 75% for movies and episodes; channels, TV guide and programme for live TV.
   Open it with ↓, Menu or a long press on OK on the remote, or by swiping up or tapping ⋯ on touch.
 - **Channel zapping** in fullscreen live TV with ↑ / ↓ and CH+ / CH− (PageUp / PageDown),
   without leaving fullscreen.
@@ -29,10 +29,10 @@ One app for TV, phone, foldable and tablet, with the same navigation everywhere.
 - Compact phones turn to landscape for fullscreen playback and turn back afterwards;
   tablets and unfolded foldables keep the orientation the user chose.
 - Remote **Menu**, **Guide** and **Info** keys are forwarded to the page (Android
-  otherwise consumes them).
+  otherwise consumes them; some TVs, e.g. the NVIDIA SHIELD, keep Menu and Guide for the system).
 - Phone-sized TV guide, compact episode cards, full-width filters and scrollable
   settings categories in portrait.
-- Test suites: 33 unit tests (on-device backend routes, gestures, zapping, quick-menu
+- Test suites: 45 unit tests (on-device backend routes, gestures, zapping, quick-menu
   focus, form factor, posture) and E2E suites for TV, phone and foldable.
 - Release pipeline: version from `package.json`, release signing, CI and tagged
   GitHub releases.
@@ -40,7 +40,19 @@ One app for TV, phone, foldable and tablet, with the same navigation everywhere.
   1× → 3× → 1×. Before, remote speed control was only reachable while the controls were hidden.
 - One control style: every dropdown and text field shares height, font, corners and fill,
   so labels and boxes line up (e.g. Search's field next to its pickers).
+- **Getting anywhere in a movie from the remote:** number keys 0–9 jump to the start, 10% … 90%
+  (5 is the middle); on the progress bar each ← / → moves 2% of the title with an OSD showing
+  where it lands; holding ← / → scans even while the controls are showing.
+- **Controls on demand:** ↑ (or Info) shows the player controls and Back hides them at once;
+  a second Back leaves the player. ↑ no longer changes speed (the Speed button does).
+- On live TV ↑ / ↓ change channel even while the controls are showing, instead of moving
+  focus onto Pause or Back; ⏭ / ⏮ change channel too.
+- Remote Mute (when the remote sends it to apps), Captions and Audio-track keys toggle the
+  player's sound, subtitles and audio language.
 - `tests/e2e/portal-smoke.mjs`: report-style smoke run against a real Stalker portal.
+- `tests/sample-portal/server.mjs`: a local Stalker portal that reproduces real-provider
+  behaviour (126 categories, category quirk, no Series module, long HLS movies, live HLS)
+  so most portal testing needs no provider account.
 
 ### Fixed
 
@@ -53,6 +65,17 @@ One app for TV, phone, foldable and tablet, with the same navigation everywhere.
   and after a failed stream; the player is now plain black.
 - Player controls shifted while seeking: Play/Pause and the time readout now keep a fixed width.
 - Home's "All sources" caption looked like a dropdown that didn't open.
+- **Movie categories were empty on some Stalker portals** (only "All" and a few loaded). The
+  TV client sends a category as both `category` and `genre`, which those portals answer with
+  an empty list; the app now asks the way IPTVnator's desktop app does (`genre=0` for movies,
+  category only for series) and falls back to the other forms.
+- Portals without a Series module made the Series page report a connection failure and keep
+  retrying; it now shows an empty page (series stay reachable in Movies categories).
+- Resuming a movie made the controls jump and flashed its opening seconds while "Restoring
+  saved position…" was shown; the message now floats below the bar and the picture stays black
+  until it is at the saved spot.
+- The Speed button changed width between 1× and 1.25×, shifting ♡ Save; the time readout fits
+  hours (`1:05:12 / 1:55:47`).
 
 ## [0.1.0] - 2026-11-04
 

@@ -63,10 +63,20 @@ export const ANDROID_CSS = `
 .zapping .live-overlay, .zapping .player-controls { opacity: 0 !important; }
 /* Stable controls while seeking: the time readout and Play/Pause keep their
    width, so nothing beside them jitters on every second or skip. */
-.android-shell .player-bottom .actions > span { display: inline-block; min-width: 10.5ch; font-variant-numeric: tabular-nums; white-space: nowrap; }
+/* 17ch fits "1:05:12 / 1:55:47"; the Speed button fits "1.25× speed". */
+.android-shell .player-bottom .actions > span { display: inline-block; min-width: 17ch; margin: 0 8px; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.android-shell .player-bottom #android-speed { min-width: 8em; text-align: center; font-variant-numeric: tabular-nums; }
 .android-shell .player-bottom [data-focus="player-toggle"] { min-width: 168px; text-align: center; }
 .form-handheld .player-bottom [data-focus="player-toggle"] { min-width: 124px; }
 .android-shell video { background: #000; }
+/* "Restoring saved position…" floats below the bar instead of pushing the
+   controls up, and the picture stays black until it is at the saved spot
+   (no flash of the opening seconds). */
+.android-shell .player-bottom > [role="status"] { position: absolute; top: 100%; left: 0; margin: 10px 0 0; }
+body:has(.player-bottom > [role="status"]) video { opacity: 0; }
+/* Back hides the controls at once; same look as the client's idle state. */
+.controls-hidden .player-controls { opacity: 0; pointer-events: none; }
+.controls-hidden #android-more { display: none !important; }
 /* Keep the picture fullscreen while the client briefly drops to preview. */
 .zapping .native-player { left: 0 !important; top: 0 !important; width: 100vw !important; height: 100vh !important; z-index: 20; }
 

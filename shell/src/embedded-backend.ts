@@ -14,6 +14,7 @@ import { buildStalkerRequestUrl } from '../../../iptvnator/libs/shared/interface
 import { normalizeXtreamServerUrl } from '../../../iptvnator/libs/shared/interfaces/src/lib/xtream-portal.utils';
 import { createPlaylistObject } from '../../../iptvnator/libs/shared/m3u-utils/src';
 import { nativeGet, NativeHttpError } from './native-http';
+import { categoryVariants, isEmptyList, withoutSeriesModule } from './stalker-category';
 
 export const EMBEDDED_BACKEND_URL = 'http://iptvnator.device';
 
@@ -88,24 +89,52 @@ async function stalker(query: Query, signal?: AbortSignal): Promise<RouteResult>
         'skipConnectionGuard',
     ]);
     if (params['action'] === 'handshake' && token) params['token'] = token;
-    const identity = buildStalkerIdentityRequestContext({
-        macAddress,
-        params,
-        ...(token ? { token } : {}),
-        ...(serialNumber ? { serialNumber } : {}),
-    });
-    const headers = { ...identity.headers };
-    if (!macAddress) delete headers['Cookie'];
-    try {
+    const send = async (variant: Record<string, string | number>) => {
+        const identity = buildStalkerIdentityRequestContext({
+            macAddress,
+            params: variant,
+            ...(token ? { token } : {}),
+            ...(serialNumber ? { serialNumber } : {}),
+        });
+        const headers = { ...identity.headers };
+        if (!macAddress) delete headers['Cookie'];
         const response = await nativeGet(buildStalkerRequestUrl(url, identity.requestParams), {
             headers,
             signal,
-            timeoutMs: params['action'] === 'create_link' ? TIMEOUT_MS.createLink : TIMEOUT_MS.stalker,
+            timeoutMs: variant['action'] === 'create_link' ? TIMEOUT_MS.createLink : TIMEOUT_MS.stalker,
         });
-        return ok({ action: query.get('action'), payload: response.data });
+        return response.data;
+    };
+    try {
+        return ok({ action: query.get('action'), payload: withoutSeriesModule(params, await filteredList(url, params, send)) });
     } catch (error) {
         return providerFailure(error);
     }
+}
+
+/** Which category-filter form each portal category answered to (see stalker-category.ts). */
+const categoryForm = new Map<string, number>();
+
+async function filteredList(
+    url: string,
+    params: Record<string, string | number>,
+    send: (variant: Record<string, string | number>) => Promise<unknown>
+): Promise<unknown> {
+    const forms = categoryVariants(params);
+    if (!forms.length) return send(params);
+    const key = `${url}|${params['type']}|${params['category']}`;
+    const known = categoryForm.get(key);
+    if (known !== undefined) return send(forms[known]);
+    let first: unknown;
+    for (let i = 0; i < forms.length; i++) {
+        const answer = await send(forms[i]);
+        if (!isEmptyList(answer)) {
+            categoryForm.set(key, i);
+            return answer;
+        }
+        if (i === 0) first = answer;
+    }
+    return first;
 }
 
 async function xtream(query: Query, signal?: AbortSignal): Promise<RouteResult> {

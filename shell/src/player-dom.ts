@@ -19,9 +19,13 @@ export function isOnDemand(v: HTMLVideoElement | null, doc: Queryable = document
     return !!v && Number.isFinite(v.duration) && v.duration > 0 && !isLivePlayback(doc);
 }
 
+/** <html> class set when the shell hides the controls early (Back). */
+export const CONTROLS_HIDDEN = 'controls-hidden';
+
 /** The client marks its fullscreen controls `dormant` after a few idle seconds. */
 export function controlsDormant(doc: Queryable = document): boolean {
-    return !!doc.querySelector('.player-controls.dormant');
+    const root = (doc as Partial<Document>).documentElement;
+    return !!doc.querySelector('.player-controls.dormant') || !!root?.classList.contains(CONTROLS_HIDDEN);
 }
 
 export function playerFullscreen(doc: Queryable = document): boolean {

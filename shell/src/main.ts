@@ -16,6 +16,9 @@ import { installPosture } from './posture';
 import { installQuickMenu } from './quick-menu';
 import { installSheetMotion } from './sheet-motion';
 import { installSpeedButton } from './speed-button';
+import { installSeekBar } from './seek-bar';
+import { installControlsVisibility } from './controls-visibility';
+import { installRemoteKeys } from './remote-keys';
 import { installTvPlatform } from './tv-platform';
 
 const USER_DB = 'iptvnator-tv-user-data';
@@ -82,5 +85,8 @@ whenBodyReady(() => {
     installPlayerState(formFactor);
     installSheetMotion();
     installSpeedButton();
+    installSeekBar();
+    installControlsVisibility();
+    installRemoteKeys();
 });
 ensureEmbeddedBackend().finally(startClient);

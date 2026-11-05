@@ -74,7 +74,9 @@ fights the user:
 | ![TV quick menu](docs/screenshots/tv/11-quick-menu.jpg) | ![Phone quick menu](docs/screenshots/phone/11-quick-menu.jpg) |
 
 For movies and episodes the quick menu offers speed (1×, 1.25×, 1.5×, 2×, 3×), jumps of
-±30 s and ±5 min, and Start over. For live TV it offers Channels, TV Guide and Programme.
+±30 s and ±5 min, and **Go to** Start over / 25% / 50% / 75%. The menu stays open after a
+jump, so +5 min can be pressed again and again. For live TV it offers Channels, TV Guide
+and Programme.
 
 | Speed button in the controls (TV) | Same on phone |
 | --- | --- |
@@ -99,15 +101,22 @@ fixed width, so the row never shifts while you seek.
 | Play / pause | OK | Pause button |
 | Skip ±10 s | tap ← / → | double-tap left / right third |
 | Scan | hold ← / → (20 → 60 → 180 s per second, seeks on release) | drag the seek bar |
-| Speed | **Speed** button in the controls, or ↑ while the controls are hidden (1× → 1.25× → 1.5× → 2× → 3×) | **Speed** button, or press and hold: 2× while held |
-| Quick menu | ↓, Menu, or hold OK | swipe up, or ⋯ |
-| Next / previous channel (live) | ↓ / ↑, CH+ / CH−, PageDown / PageUp | Channels in the quick menu |
+| Scan with the controls showing | hold ← / → (a single press still moves focus) | n/a |
+| Jump to a point | **0–9**: start, 10% … 90% (5 is the middle); quick menu **Go to** 25 / 50 / 75%; on the progress bar each ← / → moves 2% of the title | drag the seek bar |
+| Speed | **Speed** button in the controls (1× → 1.25× → 1.5× → 2× → 3×) | **Speed** button, or press and hold: 2× while held |
+| Show / hide the controls | ↑ or Info shows them; Back hides them at once | tap |
+| Quick menu | ↓ (controls hidden), Menu, or hold OK | swipe up, or ⋯ |
+| Next / previous channel (live) | ↓ / ↑ (also with the controls showing), CH+ / CH−, ⏭ / ⏮ | Channels in the quick menu |
 | TV guide (live) | Guide key | TV Guide in the quick menu |
+| Mute | Mute key toggles the player's sound when the remote sends it to apps; the TV's own mute and volume stay with Android | system volume |
+| Subtitles / audio language | Captions and Audio keys switch tracks when the stream has them | n/a |
 | Media keys | ⏯ ⏪ ⏩ ⏹ work everywhere | n/a |
-| Back | closes the top layer: panel, menu, player, then screen | system Back |
+| Back | hides the player controls, then closes the top layer: panel, menu, player, then screen | system Back |
 
-Remote gestures act only while the player controls are hidden, so normal focus
-navigation is untouched whenever the controls are on screen.
+Apart from the held ← / → and ↑/↓ on live TV, remote gestures act only while the player
+controls are hidden, so normal focus navigation is untouched whenever they are on screen.
+Some TVs keep certain keys for themselves: on an NVIDIA SHIELD the system takes Menu and
+Guide, so use ↓ or hold OK for the quick menu there.
 
 ## Every screen size
 
@@ -202,13 +211,30 @@ The suites cover:
 | Quick menu sets speed, Back closes it | ✔ | ✔ | ✔ |
 | Speed button appears in the control row by itself and cycles 1× … 3× → 1× | ✔ | ✔ | ✔ |
 | ← / ↑ at the rail's edge keep focus in the open rail | ✔ | | |
-| Remote tap/OK/↑, hold-to-scan, Back | ✔ | | |
-| Live plays; ↓ and CH− zap stay in fullscreen | ✔ | ✔ (plays) | ✔ (plays) |
+| Remote tap/OK, ↑ shows and Back hides the controls, hold-to-scan (also with the controls up), Back leaves | ✔ | | |
+| Progress bar by D-pad (2% per press); 5 jumps to the middle; quick-menu jumps repeat | ✔ | | |
+| Control row does not move while speed, skips or pause change | ✔ | ✔ | ✔ |
+| Live plays; ↓ and CH− zap stay in fullscreen, also with the controls showing | ✔ | ✔ (plays) | ✔ (plays) |
 | Rotation (phone); fold → cover → unfold; tabletop | | ✔ | ✔ |
 
-Last run: TV 17/17, phone 14/14, fold 15/15, unit 33/33. The TV suite also passes on a
+Last run: TV 20/20, fold 15/15, unit 45/45, sample portal 13/13 (phone 14/14 on the
+previous build). The TV suite also passes on a
 real NVIDIA SHIELD Android TV (Android 11, WebView 156) against the mock portal on the LAN:
 `FORM=tv SERIAL=<ip>:5555 MOCK_PORTAL=http://<mac-ip>:3210/stalker_portal/server/load.php`.
+
+**Sample portal.** `tests/sample-portal/server.mjs` is a local Stalker portal that behaves
+like the real providers we test against, so most real-portal testing needs no provider at
+all: 126 VOD categories of generated titles (films and lazy series mixed in the VOD
+catalog, 14 per page), the category quirk some portals have (`category=<id>&genre=<id>`
+answers an empty list, `genre=0` filters), a Series module that answers `js:false`, a
+20-minute HLS movie with a frame counter for checking seeks, and live channels on a
+rolling HLS window. It generates its video with ffmpeg on first start (into `build/`).
+
+```sh
+node tests/sample-portal/server.mjs   # http://0.0.0.0:3211/stalker_portal/server/load.php
+SEARCH_TERM=sample PORTAL_URL=http://10.0.2.2:3211/stalker_portal/server/load.php \
+  PORTAL_MAC=00:1A:79:12:34:56 SERIAL=emulator-5556 SHOTS=/tmp/sample node tests/e2e/portal-smoke.mjs
+```
 
 **Real portals.** `tests/e2e/portal-smoke.mjs` walks a real Stalker portal (add source,
 home, live + zap, guide, movies, categories, playback, series, search) and prints a report.
@@ -223,11 +249,15 @@ lock a MAC that handshakes too often.
 ┌──────────────────────── Android WebView (Capacitor) ─────────────────────────┐
 │  shell.js (this repo)                       IPTVnator TV client (upstream)     │
 │  ├─ embedded-backend  fetch(iptvnator.device/*) ──► routes answered in-app    │
+│  │                     (+ stalker-category: portal category/series quirks)    │
 │  │                     └─► CapacitorHttp (native: Cookie/UA headers, no CORS)  │
 │  ├─ form-factor       viewport + size-class from the native window size        │
 │  ├─ nav-rail          slide-in rail (focus on TV, ☰ on touch)                   │
 │  ├─ sheet-motion      slide-out for the client's pickers                       │
 │  ├─ player-gestures   remote + touch gestures, OSD                             │
+│  ├─ controls-visibility  ↑ shows, Back hides the player controls              │
+│  ├─ remote-keys       0–9 jumps, mute, captions, audio track, info            │
+│  ├─ seek-bar · speed-button  remote-friendly progress bar, Speed button       │
 │  ├─ quick-menu        player bottom sheet                                       │
 │  ├─ channel-zap       ↑/↓, CH± via the client's channel drawer                 │
 │  ├─ posture           tabletop layout                                          │

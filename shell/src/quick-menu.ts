@@ -4,7 +4,8 @@
  *   TV     ↓ while the controls are hidden, Menu key, or hold OK
  *   Phone  swipe up on the video, or the ⋯ button
  *
- * On-demand video: speed, jump ±30 s / ±5 min, restart.
+ * On-demand video: speed, jump ±30 s / ±5 min (the menu stays open, so a jump
+ * can be repeated), go to start / 25 % / 50 % / 75 %.
  * Live TV: channel list, TV guide, programme.
  * Back, the scrim, or Close dismiss it.
  */
@@ -26,6 +27,8 @@ export interface Box {
 interface Action {
     label: string;
     pressed?: boolean;
+    /** Leave the menu open after running (repeatable jumps). */
+    keepOpen?: boolean;
     run(): void;
 }
 
@@ -76,11 +79,25 @@ function jump(seconds: number): Action {
     const label = Math.abs(seconds) >= 60 ? `${Math.abs(seconds) / 60} min` : `${Math.abs(seconds)} s`;
     return {
         label: `${seconds < 0 ? '⏪ −' : '⏩ +'}${label}`,
+        keepOpen: true,
         run: () => {
             const v = video();
             if (!isOnDemand(v)) return;
             v.currentTime = clampTime(v.currentTime + seconds, v.duration);
             showOsd(seconds < 0 ? '⏪' : '⏩', `${clock(v.currentTime)} / ${clock(v.duration)}`, v.currentTime / v.duration);
+        },
+    };
+}
+
+/** Jumps straight to a point of the title; 0 is "Start over". */
+function goTo(fraction: number): Action {
+    return {
+        label: fraction === 0 ? '↺ Start over' : `${Math.round(fraction * 100)}%`,
+        run: () => {
+            const v = video();
+            if (!isOnDemand(v)) return;
+            v.currentTime = clampTime(fraction * v.duration, v.duration);
+            showOsd(fraction === 0 ? '↺ Start over' : `${Math.round(fraction * 100)}%`, `${clock(v.currentTime)} / ${clock(v.duration)}`, v.currentTime / v.duration);
         },
     };
 }
@@ -100,18 +117,7 @@ function onDemandRows(): Row[] {
             })),
         },
         { title: 'Jump', actions: [jump(-300), jump(-30), jump(30), jump(300)] },
-        {
-            title: 'Playback',
-            actions: [
-                {
-                    label: '↺ Start over',
-                    run: () => {
-                        const v = video();
-                        if (v) v.currentTime = 0;
-                    },
-                },
-            ],
-        },
+        { title: 'Go to', actions: [goTo(0), goTo(0.25), goTo(0.5), goTo(0.75)] },
     ];
 }
 
@@ -156,8 +162,9 @@ function render(rows: Row[]): HTMLElement {
             button.type = 'button';
             button.textContent = action.label;
             if (action.pressed !== undefined) button.setAttribute('aria-pressed', String(action.pressed));
+            // Jumps keep the menu open so +5 min can be pressed again and again.
             button.addEventListener('click', () => {
-                closeQuickMenu();
+                if (!action.keepOpen) closeQuickMenu();
                 action.run();
             });
             line.appendChild(button);

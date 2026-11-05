@@ -211,15 +211,39 @@ describe(`IPTVnator Android (${FORM}, ${SERIAL})`, () => {
         assert.ok(row.inRow, 'speed button is not in the control row');
         assert.match(row.after, /\+10/);
         assert.equal(row.label, '1× speed');
+        // Nothing in the row may shift as the label changes (1× → 1.25× …).
+        const lefts = `[...document.querySelectorAll('.player-bottom .actions > *')].map((e) => Math.round(e.getBoundingClientRect().left)).join()`;
+        const layout = new Set([await device.eval(lefts)]);
         const seen = [];
         for (let i = 0; i < 5; i++) {
             await device.eval(`document.getElementById('android-speed').click()`);
             await sleep(150);
             seen.push((await device.video()).rate);
+            layout.add(await device.eval(lefts));
         }
         assert.deepEqual(seen, [1.25, 1.5, 2, 3, 1]);
+        assert.equal(layout.size, 1, `control row moved: ${[...layout].join(' | ')}`);
         assert.equal(await device.eval(`document.getElementById('android-speed').textContent`), '1× speed');
     });
+
+    if (isTv) {
+        test('progress bar: D-pad down reaches it and → jumps 2% of the title', async () => {
+            await device.eval(`document.dispatchEvent(new MouseEvent('mousemove'))`); // controls up
+            await device.waitFor(`!document.querySelector('.player-controls.dormant')`, 3000);
+            await device.eval(`document.getElementById('android-speed').focus()`);
+            device.key('KEYCODE_DPAD_DOWN');
+            await device.waitFor(`document.activeElement?.matches('.seek input[type=range]')`, 3000);
+            const before = (await device.video()).t;
+            const duration = (await device.video()).duration;
+            device.key('KEYCODE_DPAD_RIGHT');
+            device.key('KEYCODE_DPAD_RIGHT');
+            await sleep(800);
+            const after = (await device.video()).t;
+            const step = Math.min(300, Math.max(10, duration * 0.02));
+            assert.ok(after - before >= step * 2 - 3, `moved ${after - before}s, expected ≈${step * 2}s`);
+            assert.match(await device.eval(`document.getElementById('iptv-osd')?.textContent ?? ''`), /%/);
+        });
+    }
 
     if (isFold) {
         test('tabletop: half-folded, the picture sits above the hinge and controls stay below', async () => {
@@ -253,7 +277,7 @@ describe(`IPTVnator Android (${FORM}, ${SERIAL})`, () => {
     }
 
     if (isTv) {
-        test('remote: tap right skips 10 s, OK pauses, Up changes speed', async () => {
+        test('remote: tap right skips 10 s, ↑ shows the controls, Back hides them, OK pauses', async () => {
             // The mock episode is short: start near the beginning so it cannot end mid-test.
             await device.eval(`document.querySelector('video').currentTime = 3`);
             await device.waitFor(`!!document.querySelector('.player-controls.dormant')`, 15000);
@@ -261,16 +285,12 @@ describe(`IPTVnator Android (${FORM}, ${SERIAL})`, () => {
             device.key('KEYCODE_DPAD_RIGHT');
             await sleep(600);
             assert.ok((await device.video()).t >= before + 8, 'tap did not skip forward');
-            const rate = (await device.video()).rate;
+            // ↑ shows the controls; Back hides them at once and stays in the player.
             device.key('KEYCODE_DPAD_UP');
-            await sleep(400);
-            assert.notEqual((await device.video()).rate, rate);
-            // Cycle on round to 1× (↑ wraps after 3×).
-            for (let i = 0; i < 5 && (await device.video()).rate !== 1; i++) {
-                device.key('KEYCODE_DPAD_UP');
-                await sleep(300);
-            }
-            assert.equal((await device.video()).rate, 1);
+            await device.waitFor(`!document.querySelector('.player-controls.dormant')`, 3000);
+            device.key('KEYCODE_BACK');
+            await device.waitFor(`document.documentElement.classList.contains('controls-hidden')`, 3000);
+            assert.equal(await device.eval(`!!document.querySelector('.native-player.fullscreen')`), true);
             device.key('KEYCODE_DPAD_CENTER');
             await sleep(500);
             assert.equal((await device.video()).paused, true);
@@ -288,9 +308,52 @@ describe(`IPTVnator Android (${FORM}, ${SERIAL})`, () => {
             assert.ok(after - before > 60, `scan moved only ${Math.round(after - before)} s`);
         });
 
-        test('remote: Back leaves the player without closing the app', async () => {
+        test('remote: holding right scans even while the controls are showing', async () => {
+            await device.eval(`document.querySelector('video').currentTime = 3`);
+            device.key('KEYCODE_DPAD_UP'); // wake the controls
+            await device.waitFor(`!document.querySelector('.player-controls.dormant')`, 5000);
+            await device.eval(`document.querySelector('[data-focus="player-toggle"]').focus()`);
+            const before = (await device.video()).t;
+            await device.holdKey('ArrowRight', 3000);
+            await sleep(1200);
+            const after = (await device.video()).t;
+            assert.ok(after - before > 60, `scan moved only ${Math.round(after - before)} s`);
+        });
+
+        test('remote: 5 jumps to the middle; quick-menu jumps can be repeated', async () => {
+            // Earlier scans may have run the short mock episode to its end.
+            await device.eval(`(() => { const v = document.querySelector('video'); v.currentTime = 3; return v.play(); })()`);
+            await device.waitFor(`!document.querySelector('video').paused`, 5000);
+            device.key('KEYCODE_5');
+            await sleep(800);
+            const { t, duration } = await device.video();
+            assert.ok(Math.abs(t - duration / 2) < 8, `5 went to ${t} of ${duration}`);
+            await device.eval(`document.querySelector('video').currentTime = 3`);
+            // Back hides the controls; ↓ then opens the quick menu.
+            if (!(await device.eval(`!!document.querySelector('.player-controls.dormant')`))) {
+                device.key('KEYCODE_BACK');
+                await device.waitFor(`document.documentElement.classList.contains('controls-hidden')`, 3000);
+            }
+            device.key('KEYCODE_DPAD_DOWN');
+            await device.waitFor(`!!document.getElementById('android-quick-menu')`, 3000);
+            const plus30 = `[...document.querySelectorAll('#android-quick-menu button')].find((b) => /\\+30 s/.test(b.textContent))`;
+            await device.eval(`${plus30}.focus()`);
+            device.key('KEYCODE_DPAD_CENTER');
+            await sleep(400);
+            device.key('KEYCODE_DPAD_CENTER');
+            await sleep(600);
+            assert.equal(await device.eval(`!!document.getElementById('android-quick-menu')`), true, 'menu closed after a jump');
+            assert.ok((await device.video()).t >= 60, `two +30 s jumps reached only ${(await device.video()).t}`);
             device.key('KEYCODE_BACK');
-            await sleep(1500);
+            await device.waitFor(`!document.getElementById('android-quick-menu')`, 3000);
+        });
+
+        test('remote: Back leaves the player without closing the app', async () => {
+            // A first Back may only hide visible controls.
+            for (let i = 0; i < 2 && (await device.eval(`!!document.querySelector('.native-player.fullscreen')`)); i++) {
+                device.key('KEYCODE_BACK');
+                await sleep(1200);
+            }
             const inApp = await device.eval(`!document.querySelector('.player-controls')`);
             assert.equal(inApp, true);
         });
@@ -326,8 +389,16 @@ describe(`IPTVnator Android (${FORM}, ${SERIAL})`, () => {
             device.key('KEYCODE_CHANNEL_DOWN');
             await device.waitFor(`document.querySelector('.player-bottom h1')?.textContent === ${JSON.stringify(first)}`, 8000);
             assert.equal(await device.eval(`!!document.querySelector('.native-player.fullscreen')`), true);
-            device.key('KEYCODE_BACK');
-            await sleep(1000);
+            // With the controls showing, ↓ still zaps instead of moving focus to Pause / Back.
+            await device.waitFor(`!document.documentElement.classList.contains('zapping')`, 5000);
+            await device.eval(`document.dispatchEvent(new MouseEvent('mousemove'))`);
+            await device.waitFor(`!document.querySelector('.player-controls.dormant')`, 3000);
+            device.key('KEYCODE_DPAD_DOWN');
+            await device.waitFor(`document.querySelector('.player-bottom h1')?.textContent !== ${JSON.stringify(first)}`, 8000);
+            for (let i = 0; i < 2 && (await device.eval(`!!document.querySelector('.native-player.fullscreen')`)); i++) {
+                device.key('KEYCODE_BACK');
+                await sleep(1000);
+            }
         });
     }
 

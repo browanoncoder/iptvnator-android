@@ -1,6 +1,5 @@
 /**
- * Channel zapping in the fullscreen live player: ↑ / ↓ (while the controls
- * are hidden) or CH+ / CH− switch to the neighbouring channel of the current
+ * Channel zapping in the fullscreen live player: ↑ / ↓ or CH+ / CH− switch to the neighbouring channel of the current
  * category without opening any list.
  *
  * It drives the client's own channel drawer invisibly (open → pick the
@@ -26,14 +25,16 @@ export function neighbourIndex(channels: ChannelEntry[], direction: ZapDirection
     return next >= 0 && next < channels.length ? next : -1;
 }
 
-/** CH+/CH− always zap; ↑/↓ zap only while the player controls are hidden. */
+/** CH+/CH− (and Next/Previous) always zap; ↑/↓ zap unless a channel list or guide is open. */
 export function zapDirection(event: Pick<KeyboardEvent, 'key' | 'keyCode'>): { direction: ZapDirection; channelKey: boolean } | undefined {
     switch (event.key) {
         case 'ChannelUp':
         case 'PageUp':
+        case 'MediaTrackNext':
             return { direction: 1, channelKey: true };
         case 'ChannelDown':
         case 'PageDown':
+        case 'MediaTrackPrevious':
             return { direction: -1, channelKey: true };
         case 'ArrowDown':
             return { direction: 1, channelKey: false };

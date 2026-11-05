@@ -4,19 +4,24 @@
  *                     Remote (TV)                     Touch (phone)
  *   play / pause      OK                              —  (client's Pause button)
  *   skip ±10 s        tap ← / →                       double-tap left / right third
- *   scan              hold ← / → (accelerates)        —
- *   faster            ↑ cycles 1× … 3×                press and hold: 2× while held
+ *   scan              hold ← / → (accelerates; also   —
+ *                     while the controls are up)
+ *   show controls     ↑ (Back hides them again)       tap
+ *   faster            Speed button / quick menu       press and hold: 2× while held
  *   quick menu        ↓, Menu, or hold OK             swipe up, or ⋯
- *   zap channel       ↑ / ↓ or CH± on live TV         —  (Channels in the quick menu)
+ *   zap channel       ↑ / ↓, CH± or ⏭/⏮ on live TV —  (Channels in the quick menu)
+ *                     (↑/↓ zap even with the controls up)
  *
  * Remote gestures act only while the client's controls are dormant, so normal
- * focus navigation is untouched whenever the controls are visible. A scan
+ * focus navigation is untouched whenever the controls are visible; the one
+ * exception is a held ← / →, which always scans. A scan
  * previews the target in the OSD and seeks once on release, so holding a key
  * does not flood the provider with range requests.
  */
 import { zap, zapDirection } from './channel-zap';
+import { hideControls, revealControls, shouldHideOnBack } from './controls-visibility';
 import { showOsd } from './osd';
-import { applySpeed, currentSpeed, nextSpeed, setSpeed } from './playback-speed';
+import { applySpeed, currentSpeed } from './playback-speed';
 import { isQuickMenuOpen, openQuickMenu } from './quick-menu';
 import {
     clampTime,
@@ -117,12 +122,6 @@ function togglePlay(v: HTMLVideoElement): void {
     showOsd(v.paused ? '❚❚ Paused' : '▶ Play', ...progress(v));
 }
 
-function cycleSpeed(v: HTMLVideoElement): void {
-    const rate = nextSpeed(currentSpeed());
-    setSpeed(v, rate);
-    showOsd(`Speed ${rate}×`, rate === 1 ? 'Normal speed' : '↑ faster · ↓ more options');
-}
-
 function scanDirection(event: KeyboardEvent): 1 | -1 | 0 {
     if (event.key === 'ArrowRight' || event.key === 'MediaFastForward') return 1;
     if (event.key === 'ArrowLeft' || event.key === 'MediaRewind') return -1;
@@ -146,7 +145,9 @@ function onEnterDown(event: KeyboardEvent, onDemand: boolean): void {
 
 function onLiveKey(event: KeyboardEvent): void {
     const zapKey = zapDirection(event);
-    if (zapKey && (zapKey.channelKey || controlsDormant())) {
+    // ↑/↓ always zap in the fullscreen live player (focus never wanders onto
+    // Pause / Back); only an open channel list or guide keeps them.
+    if (zapKey && (zapKey.channelKey || controlsDormant() || !document.querySelector('.live-overlay'))) {
         consume(event);
         if (!event.repeat) void zap(zapKey.direction);
     } else if (event.key === 'Enter') {
@@ -154,9 +155,21 @@ function onLiveKey(event: KeyboardEvent): void {
     }
 }
 
+function onSeekBar(target: EventTarget | null): boolean {
+    return target instanceof HTMLInputElement && target.type === 'range';
+}
+
 function onDemandKey(event: KeyboardEvent, v: HTMLVideoElement): void {
     const direction = scanDirection(event);
     const mediaKey = event.key === 'MediaFastForward' || event.key === 'MediaRewind';
+    // Holding ← / → scans even while the controls are up: the first press moves
+    // focus as usual, the key's auto-repeat scans. The progress bar keeps its
+    // own stepping (seek-bar.ts).
+    if (direction !== 0 && event.repeat && !onSeekBar(event.target)) {
+        consume(event);
+        scanStep(v, direction, !!scan);
+        return;
+    }
     // Media scan keys work any time; arrows/OK/Up/Down only while the controls are hidden.
     if (!mediaKey && !controlsDormant() && !(event.key === 'Enter' && enter)) return;
     if (direction !== 0) {
@@ -166,7 +179,7 @@ function onDemandKey(event: KeyboardEvent, v: HTMLVideoElement): void {
         onEnterDown(event, true);
     } else if (event.key === 'ArrowUp' && !event.repeat) {
         consume(event);
-        cycleSpeed(v);
+        revealControls();
     } else if (event.key === 'ArrowDown' && !event.repeat) {
         consume(event);
         openQuickMenu();
@@ -183,7 +196,12 @@ function onKeyDown(event: KeyboardEvent): void {
         }
         return;
     }
-    if (event.key === 'ContextMenu' || event.key === 'Info') {
+    if (shouldHideOnBack(event)) {
+        consume(event);
+        hideControls();
+        return;
+    }
+    if (event.key === 'ContextMenu') {
         consume(event);
         openQuickMenu();
         return;
