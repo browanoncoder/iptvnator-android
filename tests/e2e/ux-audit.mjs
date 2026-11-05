@@ -14,62 +14,19 @@
 //   focus loss                  nothing focused on a remote-driven screen
 //   false alarms                error banners on a healthy portal
 import { execFileSync } from 'node:child_process';
-import { mkdirSync, writeFileSync } from 'node:fs';
 import { Device } from './device.mjs';
+import { addPortal, BUDGET, createAudit, createShooter, INSTRUMENT, PLAYING, SAMPLE_MAC, SAMPLE_PORTAL, sleep } from './ux-lib.mjs';
 
-const { SERIAL = 'emulator-5556', PORTAL_URL = 'http://10.0.2.2:3211/stalker_portal/server/load.php', OUT } = process.env;
-const PORTAL_MAC = process.env.PORTAL_MAC ?? '00:1A:79:12:34:56';
+const { SERIAL = 'emulator-5556', PORTAL_URL = SAMPLE_PORTAL, PORTAL_MAC = SAMPLE_MAC, OUT } = process.env;
 const device = new Device(SERIAL, Number(process.env.CDP_PORT ?? 9390));
-const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
-const BUDGET = { contentMs: 2500, pictureMs: 4000, keyMs: 150, shift: 0.05 };
-const results = [];
 
-const INSTRUMENT = `(() => {
-  if (window.__ux) return;
-  const ux = window.__ux = { scenario: 'start', shift: {}, focusLoss: {}, alerts: [], keys: [] };
-  try { new PerformanceObserver((list) => { for (const e of list.getEntries()) if (!e.hadRecentInput && e.startTime - (ux.lastKeyAt || -1e9) > 600) { ux.shift[ux.scenario] = (ux.shift[ux.scenario] || 0) + e.value;
-    if (e.value > 0.01) (ux.shifters = ux.shifters || []).push({ scenario: ux.scenario, value: +e.value.toFixed(3), after: (ux.lastKey || '') + '+' + Math.round(e.startTime - (ux.lastKeyAt || 0)) + 'ms', what: (e.sources || []).map((x) => x.node ? (x.node.className || x.node.nodeName).toString().slice(0, 40) : '?').join(', ') }); } }).observe({ type: 'layout-shift', buffered: false }); } catch {}
-  new MutationObserver(() => { document.querySelectorAll('[role="alert"]').forEach((a) => { if (a.__seen) return; a.__seen = true; ux.alerts.push({ scenario: ux.scenario, text: a.textContent.trim().slice(0, 90) }); }); })
-    .observe(document.body, { subtree: true, childList: true });
-  let lost = false;
-  setInterval(() => {
-    // Only a remote needs a focused element; on touch screens nothing focused is normal.
-    const nothing = document.documentElement.classList.contains('form-tv') && (!document.activeElement || document.activeElement === document.body);
-    const hiddenPlayer = document.querySelector('.player-controls.dormant') || document.documentElement.classList.contains('controls-hidden');
-    if (nothing && !hiddenPlayer && !lost) ux.focusLoss[ux.scenario] = (ux.focusLoss[ux.scenario] || 0) + 1;
-    lost = nothing && !hiddenPlayer;
-  }, 250);
-  let pending;
-  const react = () => { if (!pending) return; ux.keys.push({ scenario: ux.scenario, key: pending.key, ms: Math.round(performance.now() - pending.t) }); pending = undefined; };
-  // A click (OK on a focused button, or the audit's scripted click) is user input too.
-  window.addEventListener('click', () => { ux.lastKey = 'click'; ux.lastKeyAt = performance.now(); }, true);
-  window.addEventListener('keydown', (e) => { ux.lastKey = e.key; ux.lastKeyAt = performance.now(); if (e.repeat) return; react(); const mine = pending = { key: e.key, t: performance.now(), on: (document.activeElement?.id || document.activeElement?.textContent || '').trim().slice(0, 24) };
-    setTimeout(() => { if (pending === mine) { ux.keys.push({ scenario: ux.scenario, key: e.key + ' on "' + pending.on + '"', ms: null }); pending = undefined; } }, 1000); }, true);
-  new MutationObserver(() => requestAnimationFrame(react)).observe(document.body, { subtree: true, childList: true, attributes: true, characterData: true });
-  document.addEventListener('focusin', () => requestAnimationFrame(react), true);
-  document.addEventListener('seeked', () => requestAnimationFrame(react), true);
-  document.addEventListener('ratechange', () => requestAnimationFrame(react), true);
-  document.addEventListener('pause', () => requestAnimationFrame(react), true);
-  document.addEventListener('play', () => requestAnimationFrame(react), true);
-})()`;
-
-const PLAYING = `(() => { const v = document.querySelector('video'); return !!v && !v.paused && v.readyState >= 3 && v.videoWidth > 0; })()`;
 const video = () => device.eval(`(() => { const v = document.querySelector('video'); return v && { t: v.currentTime, d: v.duration, paused: v.paused, rate: v.playbackRate }; })()`);
 const fullscreen = () => device.eval(`!!document.querySelector('.native-player.fullscreen')`);
 const key = async (code, wait = 500) => { device.key(`KEYCODE_${code}`); await sleep(wait); };
 const timed = async (expression, timeoutMs = 30000) => { const t = Date.now(); await device.waitFor(expression, timeoutMs); return Date.now() - t; };
 
-async function scenario(name, run) {
-    await device.eval(`window.__ux && (window.__ux.scenario = ${JSON.stringify(name)})`);
-    const checks = [];
-    const check = (label, ok, detail = '') => checks.push({ label, ok: !!ok, detail: String(detail) });
-    try {
-        await run(check);
-    } catch (error) {
-        check('completed', false, String(error.message ?? error).slice(0, 160));
-    }
-    results.push({ name, checks });
-}
+const { scenario, report } = createAudit(device, `Experience audit — remote (${SERIAL})`);
+const shot = createShooter(device, OUT);
 
 async function leavePlayer() {
     for (let i = 0; i < 3 && (await fullscreen()); i++) await key('BACK', 1000);
@@ -92,18 +49,13 @@ await device.launch({ clearData: true });
 await device.eval(INSTRUMENT);
 
 await scenario('setup: add the portal', async (check) => {
-    await device.nav('Sources');
-    await device.click('button', '^STALKER$');
-    await device.waitFor(`!!document.querySelector('input[name="macAddress"]')`);
-    await device.eval(`(() => { const set = (n, v) => { const i = document.querySelector('input[name="' + n + '"]'); i.value = v; i.dispatchEvent(new Event('input', { bubbles: true })); };
-        set('name', 'Sample'); set('url', ${JSON.stringify(PORTAL_URL)}); set('macAddress', ${JSON.stringify(PORTAL_MAC)}); })()`);
-    await device.click('button', '^Save and connect$');
-    check('source connects', await timed(`[...document.querySelectorAll('button')].some((b) => /Sample/.test(b.textContent))`, 30000) >= 0);
+    check('source connects', (await addPortal(device, PORTAL_URL, PORTAL_MAC)) >= 0);
 });
 
 await scenario('home', async (check) => {
     const ms = await (async () => { const t = Date.now(); await device.nav('Home'); await device.waitFor(`document.querySelectorAll('main .poster-card, main .channel').length > 0`, 30000); return Date.now() - t; })();
     check(`content within ${BUDGET.contentMs} ms`, ms <= BUDGET.contentMs, `${ms} ms`);
+    await shot('home');
 });
 
 await scenario('movies: browse and switch categories', async (check) => {
@@ -111,6 +63,7 @@ await scenario('movies: browse and switch categories', async (check) => {
     await device.nav('Movies');
     await device.waitFor(`document.querySelectorAll('main .poster-card').length > 0`, 30000);
     check(`posters within ${BUDGET.contentMs} ms`, Date.now() - t <= BUDGET.contentMs, `${Date.now() - t} ms`);
+    await shot('movies');
     for (const pattern of ['TAMIL \\| MOVIES', 'FRENCH \\| KIDS', 'SPORTING']) {
         const { label, ms } = await pickCategory(pattern);
         const own = await device.eval(`[...document.querySelectorAll('main .poster-card')].slice(0, 3).map((c) => c.textContent).join(' ')`);
@@ -126,6 +79,7 @@ await scenario('movie: detail → play', async (check) => {
     await key('DPAD_CENTER', 200);
     const play = await timed(`[...document.querySelectorAll('main button')].some((b) => /^(Play|Watch|Resume)/.test(b.textContent.trim()))`, 15000);
     check(`detail within ${BUDGET.contentMs} ms`, play <= BUDGET.contentMs, `${play} ms`);
+    await shot('detail');
     check('detail focuses Play', await device.eval(`/^(Play|Watch|Resume)/.test(document.activeElement?.textContent.trim() ?? '')`), await device.eval(`document.activeElement?.textContent.trim().slice(0, 30)`));
     await device.eval(`[...document.querySelectorAll('main button')].find((b) => /^(Play|Watch|Resume)/.test(b.textContent.trim())).focus()`);
     const t = Date.now();
@@ -133,6 +87,7 @@ await scenario('movie: detail → play', async (check) => {
     await device.waitFor(PLAYING, 20000);
     check(`picture within ${BUDGET.pictureMs} ms`, Date.now() - t <= BUDGET.pictureMs, `${Date.now() - t} ms`);
     check('opens fullscreen', await fullscreen());
+    await shot('player');
 });
 
 await scenario('player: remote keys', async (check) => {
@@ -154,6 +109,7 @@ await scenario('player: remote keys', async (check) => {
     check('OK plays again', !(await video()).paused);
     await key('DPAD_DOWN', 700);
     check('↓ opens the quick menu', await device.eval(`!!document.getElementById('android-quick-menu')`));
+    await shot('quick-menu');
     before = await video();
     await device.eval(`[...document.querySelectorAll('#android-quick-menu button')].find((b) => /\\+5 min/.test(b.textContent)).focus()`);
     await key('DPAD_CENTER', 500);
@@ -165,6 +121,7 @@ await scenario('player: remote keys', async (check) => {
     await key('DPAD_CENTER', 900);
     v = await video();
     check('Go to 25%', Math.abs(v.t - v.d / 4) < 10, `${Math.round(v.t)}`);
+    await shot('after-go-to');
     check('player still open after the menu', await fullscreen());
     await key('DPAD_UP', 600);
     await device.eval(`document.getElementById('android-speed')?.focus()`);
@@ -227,6 +184,7 @@ await scenario('live: play, zap, guide', async (check) => {
     await key('DPAD_CENTER', 1200);
     if (!(await fullscreen())) await device.click('button', 'Fullscreen', 5000);
     check('OK again goes fullscreen', await fullscreen());
+    await shot('live-fullscreen');
     const title = `document.querySelector('.player-bottom h1')?.textContent`;
     const zaps = [];
     for (let i = 0; i < 3; i++) {
@@ -250,6 +208,7 @@ await scenario('live: play, zap, guide', async (check) => {
     check('Back leaves fullscreen', !(await fullscreen()));
     const g = await (async () => { const s = Date.now(); await device.click('button', '^TV Guide$', 5000); await device.waitFor(`document.querySelectorAll('.grid-channel').length > 0`, 15000); return Date.now() - s; })();
     check(`guide within ${BUDGET.contentMs} ms`, g <= BUDGET.contentMs, `${g} ms`);
+    await shot('guide');
     await key('BACK', 800);
 });
 
@@ -260,6 +219,7 @@ await scenario('search', async (check) => {
     await device.eval(`(() => { const i = document.querySelector('main input'); i.value = 'sample show'; i.dispatchEvent(new Event('input', { bubbles: true })); })()`);
     await device.waitFor(`document.querySelectorAll('main .poster-card').length > 0`, 15000);
     check(`results within ${BUDGET.contentMs} ms`, Date.now() - t <= BUDGET.contentMs, `${Date.now() - t} ms`);
+    await shot('search');
 });
 
 await scenario('back never exits by surprise', async (check) => {
@@ -278,33 +238,5 @@ await scenario('back never exits by surprise', async (check) => {
 
 // ------------------------------------------------------------------ report
 
-const ux = await device.eval('window.__ux').catch(() => ({ shift: {}, focusLoss: {}, alerts: [], keys: [] }));
+await report(OUT);
 device.close();
-for (const r of results) {
-    const keys = ux.keys.filter((k) => k.scenario === r.name);
-    const timed = keys.filter((k) => k.ms !== null).map((k) => k.ms).sort((a, b) => a - b);
-    const p95 = timed.length ? timed[Math.min(timed.length - 1, Math.floor(timed.length * 0.95))] : null;
-    const dead = keys.filter((k) => k.ms === null).map((k) => k.key);
-    r.metrics = { keyP95: p95, deadKeys: dead, shift: +(ux.shift[r.name] ?? 0).toFixed(3), focusLoss: ux.focusLoss[r.name] ?? 0, alerts: ux.alerts.filter((a) => a.scenario === r.name).map((a) => a.text) };
-    if (p95 !== null) r.checks.push({ label: `key response p95 ≤ ${BUDGET.keyMs} ms`, ok: p95 <= BUDGET.keyMs, detail: `${p95} ms` });
-    if (dead.length) r.checks.push({ label: 'every key reacts', ok: false, detail: dead.join(', ') });
-    const movers = (ux.shifters ?? []).filter((x) => x.scenario === r.name).map((x) => `${x.value} ${x.what} @${x.after}`).slice(0, 4).join('; ');
-    r.checks.push({ label: `layout shift ≤ ${BUDGET.shift}`, ok: r.metrics.shift <= BUDGET.shift, detail: r.metrics.shift + (movers ? ` (${movers})` : '') });
-    r.checks.push({ label: 'focus never lost', ok: r.metrics.focusLoss === 0, detail: r.metrics.focusLoss });
-    r.checks.push({ label: 'no false alarms', ok: r.metrics.alerts.length === 0, detail: r.metrics.alerts.join(' | ') });
-}
-const all = results.flatMap((r) => r.checks);
-const score = Math.round((all.filter((c) => c.ok).length / all.length) * 100);
-const lines = [`# Experience audit (${SERIAL})`, '', `Score: **${score}%** (${all.filter((c) => c.ok).length}/${all.length} checks)`, ''];
-for (const r of results) {
-    lines.push(`## ${r.name}`);
-    for (const c of r.checks) lines.push(`- ${c.ok ? '✔' : '✖'} ${c.label}${c.detail !== '' ? ` — ${c.detail}` : ''}`);
-    lines.push('');
-}
-const report = lines.join('\n');
-console.log(report);
-if (OUT) {
-    mkdirSync(OUT, { recursive: true });
-    writeFileSync(`${OUT}/ux-audit.md`, report);
-    writeFileSync(`${OUT}/ux-audit.json`, JSON.stringify({ score, results }, null, 2));
-}

@@ -57,6 +57,10 @@ One app for TV, phone, foldable and tablet, with the same navigation everywhere.
   portal and measures time to picture, key response, layout shifts, focus loss and false
   error banners against budgets.
 - Back on Home asks "Press Back again to exit" instead of leaving the app at once.
+- `tests/e2e/touch-audit.mjs`: the experience audit for phones, foldables and tablets, with
+  real touch input (taps, double-taps, press-and-hold, swipes, typing) and a screenshot per step.
+- Touch: tapping the picture while the player controls are up hides them, like other phone
+  video players (a double-tap still skips).
 
 ### Fixed
 
@@ -78,6 +82,14 @@ One app for TV, phone, foldable and tablet, with the same navigation everywhere.
 - Resuming a movie made the controls jump and flashed its opening seconds while "Restoring
   saved position…" was shown; the message now floats below the bar and the picture stays black
   until it is at the saved spot.
+- Every tap on phones and tablets waited ~250 ms for a possible double-tap zoom before
+  anything happened; taps now act at once.
+- After Back hid the player controls on a touch screen, tapping did not bring them back until
+  the player's idle timer ran out (up to 5 s).
+- "Connecting to your source…" flashed into the page on every category, sort or search change,
+  making the filters and posters jump down and back; it now floats over the page and only
+  appears when loading takes longer than 0.4 s.
+- The progress bar is a thumb-sized 44 px touch target on phones and tablets (was 24 px).
 - On phones and foldables the player's button row re-wrapped about a second after a movie
   started (the Speed button arrived with the duration), pushing the progress bar up; it is now
   in place from the first frame.

@@ -104,7 +104,7 @@ fixed width, so the row never shifts while you seek.
 | Scan with the controls showing | hold ← / → (a single press still moves focus) | n/a |
 | Jump to a point | **0–9**: start, 10% … 90% (5 is the middle); quick menu **Go to** 25 / 50 / 75%; on the progress bar each ← / → moves 2% of the title | drag the seek bar |
 | Speed | **Speed** button in the controls (1× → 1.25× → 1.5× → 2× → 3×) | **Speed** button, or press and hold: 2× while held |
-| Show / hide the controls | ↑ or Info shows them; Back hides them at once | tap |
+| Show / hide the controls | ↑ or Info shows them; Back hides them at once | tap shows them, tap again hides them |
 | Quick menu | ↓ (controls hidden), Menu, or hold OK | swipe up, or ⋯ |
 | Next / previous channel (live) | ↓ / ↑ (also with the controls showing), CH+ / CH−, ⏭ / ⏮ | Channels in the quick menu |
 | TV guide (live) | Guide key | TV Guide in the quick menu |
@@ -242,6 +242,18 @@ that should not be there. It writes `ux-audit.md` / `.json` with a score and bud
 node tests/sample-portal/server.mjs &
 OUT=build/ux SERIAL=emulator-5556 node tests/e2e/ux-audit.mjs                 # TV
 OUT=build/ux-fold SERIAL=emulator-5558 CDP_PORT=9391 node tests/e2e/ux-audit.mjs
+```
+
+`tests/e2e/touch-audit.mjs` is the same audit for phones, foldables and tablets, driven with a
+finger instead of a remote: the ☰ menu (tap, tap outside, swipe, Back), the category picker
+with typing, sort, search-this-source, swipe scrolling, double-tap skips, press-and-hold 2×,
+swipe-up quick menu, tapping and dragging the progress bar, Pause / Speed, live channels from
+the channel list, search with the on-screen keyboard, rotation, and Back on Home. It also
+flags sideways scrolling and touch targets under 40 px, and saves a screenshot of every step
+(`OUT/shots`) for a visual review:
+
+```sh
+OUT=build/touch SERIAL=emulator-5554 CDP_PORT=9392 node tests/e2e/touch-audit.mjs
 ```
 
 ```sh

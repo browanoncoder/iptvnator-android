@@ -49,10 +49,27 @@ export const ANDROID_CSS = `
 .android-shell:has(aside[hidden]) #android-menu,
 .player-active #android-menu, .player-active #android-scrim { display: none; }
 
+/* Taps fire at once: no double-tap-to-zoom wait (the viewport has a fixed
+   width, so the browser otherwise delays every click by ~250 ms). */
+html.android-shell { touch-action: manipulation; }
+
+/* "Connecting to your source…" flashed into the page flow on every catalog
+   load, pushing the filters and posters down and back (a visible jump). It now
+   floats over the page and only fades in when loading takes longer than 0.4 s. */
+.android-shell main > .loading {
+  position: fixed; top: 16px; left: 50%; transform: translateX(-50%); z-index: 60;
+  margin: 0; padding: 8px 20px; border-radius: 999px; background: rgba(8, 12, 14, .88);
+  pointer-events: none; white-space: nowrap; animation: android-loading-in .2s .4s both;
+}
+@keyframes android-loading-in { from { opacity: 0; } to { opacity: 1; } }
+
 /* ── Player chrome ───────────────────────────────────────────────────── */
 .android-shell .player-top > span { display: none; }
 .android-shell .player-top { padding-right: 120px; }
 .android-shell .native-player.fullscreen { touch-action: none; }
+/* A thumb-sized progress bar on touch screens: the input grows to 44px (the
+   drawn track stays thin), the margin shrinks so the layout barely moves. */
+.form-handheld .player-bottom .seek input[type="range"] { height: 44px; margin-top: 2px; }
 #android-more {
     position: fixed; top: 46px; right: 46px; z-index: 25; display: none;
     width: 64px; height: 64px; min-height: 0; padding: 0; border-radius: 50%;

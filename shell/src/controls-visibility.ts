@@ -39,8 +39,15 @@ export function shouldHideOnBack(event: KeyboardEvent): boolean {
 }
 
 export function installControlsVisibility(): void {
-    // Any key the shell lets through reaches the client, which shows its controls.
-    document.addEventListener('keydown', () => root().classList.remove(CONTROLS_HIDDEN), true);
+    // Any key the shell lets through reaches the client, which shows its controls;
+    // so does a tap or real mouse movement (taps send no keys, and without this
+    // the controls stayed hidden after Back until the client's idle timer ran).
+    const show = () => root().classList.remove(CONTROLS_HIDDEN);
+    document.addEventListener('keydown', show, true);
+    document.addEventListener('pointerdown', show, true);
+    document.addEventListener('mousemove', (event) => {
+        if (event.isTrusted) show();
+    }, true);
     new MutationObserver(() => {
         const dormant = !!document.querySelector('.player-controls.dormant');
         if (dormant || !playerFullscreen()) root().classList.remove(CONTROLS_HIDDEN);

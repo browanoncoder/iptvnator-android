@@ -6,7 +6,7 @@
  *   skip ±10 s        tap ← / →                       double-tap left / right third
  *   scan              hold ← / → (accelerates; also   —
  *                     while the controls are up)
- *   show controls     ↑ (Back hides them again)       tap
+ *   show controls     ↑ (Back hides them again)       tap (tap again hides them)
  *   faster            Speed button / quick menu       press and hold: 2× while held
  *   quick menu        ↓, Menu, or hold OK             swipe up, or ⋯
  *   zap channel       ↑ / ↓, CH± or ⏭/⏮ on live TV —  (Channels in the quick menu)
@@ -57,12 +57,15 @@ interface Touch {
     timer?: ReturnType<typeof setTimeout>;
     boosted: boolean;
     moved: boolean;
+    /** Were the controls up when the finger came down (before the tap revealed them)? */
+    controlsWereVisible: boolean;
 }
 
 let scan: Scan | undefined;
 let lastTap = { at: 0, side: 0 };
 let enter: { at: number; menu: boolean } | undefined;
 let touch: Touch | undefined;
+let hideTimer: ReturnType<typeof setTimeout> | undefined;
 
 /** Scan rate in seconds of media per second held: 20 s/s, then 60 s/s, then 180 s/s. */
 export function scanRate(heldMs: number): number {
@@ -75,6 +78,11 @@ export function scanRate(heldMs: number): number {
 export function tapSide(x: number, width: number): -1 | 0 | 1 {
     const third = width / 3;
     return x < third ? -1 : x > third * 2 ? 1 : 0;
+}
+
+/** Like phone video players: a single tap on the picture while the controls are up hides them. */
+export function tapHidesControls(tap: { controlsWereVisible: boolean; doubleTapped: boolean }): boolean {
+    return tap.controlsWereVisible && !tap.doubleTapped;
 }
 
 export function isSwipeUp(dx: number, dy: number): boolean {
@@ -242,7 +250,7 @@ function isControl(target: EventTarget | null): boolean {
 function onPointerDown(event: PointerEvent): void {
     if (event.pointerType !== 'touch' || !playerFullscreen() || isControl(event.target)) return;
     const v = video();
-    const state: Touch = { x: event.clientX, y: event.clientY, boosted: false, moved: false };
+    const state: Touch = { x: event.clientX, y: event.clientY, boosted: false, moved: false, controlsWereVisible: !controlsDormant() };
     if (isOnDemand(v) && !v.paused) {
         state.timer = setTimeout(() => {
             if (!touch || touch.moved) return;
@@ -284,22 +292,26 @@ function onPointerUp(event: PointerEvent): void {
         return;
     }
     if (ended.moved) return;
-    doubleTap(event);
+    const doubleTapped = doubleTap(event);
+    clearTimeout(hideTimer);
+    // Wait out the double-tap window, so a double-tap skips without flashing the controls away.
+    if (tapHidesControls({ controlsWereVisible: ended.controlsWereVisible, doubleTapped })) hideTimer = setTimeout(hideControls, DOUBLE_TAP_MS);
 }
 
-/** YouTube-style double-tap on the left/right third of the screen. */
-function doubleTap(event: PointerEvent): void {
+/** YouTube-style double-tap on the left/right third of the screen; true when it skipped. */
+function doubleTap(event: PointerEvent): boolean {
     const v = video();
-    if (!isOnDemand(v)) return;
+    if (!isOnDemand(v)) return false;
     const side = tapSide(event.clientX, window.innerWidth);
     const now = performance.now();
     if (side !== 0 && side === lastTap.side && now - lastTap.at < DOUBLE_TAP_MS) {
         v.currentTime = clampTime(v.currentTime + side * TAP_SKIP_S, v.duration);
         showOsd(side > 0 ? '⏩ +10 s' : '⏪ −10 s', ...progress(v));
         lastTap = { at: 0, side: 0 };
-        return;
+        return true;
     }
     lastTap = { at: now, side };
+    return false;
 }
 
 function onLoadedMetadata(event: Event): void {

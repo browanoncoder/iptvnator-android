@@ -121,6 +121,48 @@ export class Device {
         await this.send('Input.dispatchKeyEvent', { type: 'keyUp', ...base });
     }
 
+    // ---- touch (CSS pixels; goes through the WebView's real gesture handling,
+    // so taps become pointer events, clicks and focus like a finger would)
+
+    async touch(type, x, y) {
+        await this.send('Input.dispatchTouchEvent', { type, touchPoints: type === 'touchEnd' ? [] : [{ x, y, radiusX: 4, radiusY: 4, force: 1 }] });
+    }
+
+    async tap(x, y, holdMs = 60) {
+        await this.touch('touchStart', x, y);
+        await sleep(holdMs);
+        await this.touch('touchEnd', x, y);
+    }
+
+    async swipe(x1, y1, x2, y2, ms = 250) {
+        const steps = Math.max(4, Math.round(ms / 16));
+        await this.touch('touchStart', x1, y1);
+        for (let i = 1; i <= steps; i++) {
+            await this.touch('touchMove', x1 + ((x2 - x1) * i) / steps, y1 + ((y2 - y1) * i) / steps);
+            await sleep(ms / steps);
+        }
+        await this.touch('touchEnd', x2, y2);
+    }
+
+    /** Centre of the first visible element matching selector (+ optional text pattern), in CSS px. */
+    async centre(selector, pattern, timeoutMs = 10000) {
+        const text = pattern ? `new RegExp(${JSON.stringify(pattern)}).test((e.textContent || e.getAttribute('aria-label') || '').trim())` : 'true';
+        // The visible part of the element must be big enough to aim at; tap its centre.
+        const source = `[...document.querySelectorAll(${JSON.stringify(selector)})].find(e => { const r = e.getBoundingClientRect(); return r.width && Math.min(r.bottom, innerHeight) - Math.max(r.top, 0) >= Math.min(24, r.height) && ${text}; })`;
+        await this.waitFor(`!!${source}`, timeoutMs);
+        return this.eval(`(() => { const e = ${source}; const r = e.getBoundingClientRect(); const top = Math.max(r.top, 0), bottom = Math.min(r.bottom, innerHeight); return { x: r.left + r.width / 2, y: (top + bottom) / 2 }; })()`);
+    }
+
+    async tapOn(selector, pattern, timeoutMs) {
+        const { x, y } = await this.centre(selector, pattern, timeoutMs);
+        await this.tap(x, y);
+    }
+
+    /** Types into the focused field like the on-screen keyboard (insertText). */
+    async type(text) {
+        await this.send('Input.insertText', { text });
+    }
+
     screenshot(path) {
         const raw = adb(this.serial, 'exec-out', 'screencap', '-p');
         // Multi-display devices (foldables) print a warning before the PNG data.

@@ -1,6 +1,6 @@
 import { describe, test } from 'node:test';
 import assert from 'node:assert/strict';
-import { isSwipeUp, scanRate, tapSide } from '../../shell/src/player-gestures';
+import { isSwipeUp, scanRate, tapHidesControls, tapSide } from '../../shell/src/player-gestures';
 import { clampTime, clock, isBackKey, isLivePlayback, playerFullscreen, signedClock } from '../../shell/src/player-dom';
 import { nextSpeed, SPEEDS } from '../../shell/src/playback-speed';
 import { fakeDoc } from './helpers';
@@ -55,5 +55,17 @@ describe('player helpers', () => {
         assert.equal(isBackKey(key('', 461)), true);
         assert.equal(isBackKey(key('Escape')), true);
         assert.equal(isBackKey(key('Enter')), false);
+    });
+});
+
+describe('tap on the picture toggles the controls', () => {
+    test('a single tap while the controls are up hides them', () => {
+        assert.equal(tapHidesControls({ controlsWereVisible: true, doubleTapped: false }), true);
+    });
+    test('a tap while they are hidden only shows them', () => {
+        assert.equal(tapHidesControls({ controlsWereVisible: false, doubleTapped: false }), false);
+    });
+    test('a double-tap skips and leaves the controls alone', () => {
+        assert.equal(tapHidesControls({ controlsWereVisible: true, doubleTapped: true }), false);
     });
 });

@@ -66,6 +66,12 @@ function livePlaylist() {
 const LANGUAGES = ['ENGLISH', 'HINDI', 'TAMIL', 'TELUGU', 'MALAYALAM', 'PUNJABI', 'BANGLA', 'ARABIC', 'URDU', 'KANNADA', 'MARATHI', 'GUJARATI', 'FRENCH', 'SPANISH'];
 const KINDS = ['MOVIES | LATEST', 'MOVIES | COLLECTION', 'MOVIES | 4K', 'TV SHOWS', 'SERIES', 'DUBBED', 'CLASSICS', 'KIDS', 'DOCUMENTARIES'];
 
+/** "MOVIES | 4K" → " · 4K", so titles from sibling categories of one language differ. */
+function categoryTag(title) {
+    const kind = title.split(' | ').slice(1).join(' ').replace(/^MOVIES ?/, '').trim();
+    return kind ? ` · ${kind.toLowerCase()}` : '';
+}
+
 function buildCatalog() {
     const categories = [{ id: '*', title: 'All', alias: '*', censored: 0 }];
     const items = [];
@@ -83,7 +89,8 @@ function buildCatalog() {
             const itemId = String(next++);
             items.push({
                 id: itemId,
-                name: `${series ? 'Sample Show' : 'Sample Film'} ${title.split(' | ')[0].toLowerCase()} ${n}`,
+                // Unique per category, so screens never show look-alike duplicates.
+                name: `${series ? 'Sample Show' : 'Sample Film'} ${title.split(' | ')[0].toLowerCase()} ${n}${categoryTag(title)}`,
                 o_name: '',
                 description: `Generated ${series ? 'series' : 'film'} ${n} of ${title}.`,
                 year: String(2000 + ((n * 3 + i) % 26)),
