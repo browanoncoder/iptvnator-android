@@ -138,7 +138,7 @@ class** and keeps it up to date as the window rotates, folds, unfolds or resizes
 
 | Tablet portrait | Tablet landscape | Phone landscape |
 | --- | --- | --- |
-| ![Tablet portrait](docs/screenshots/tablet/01-portrait-live.jpg) | ![Tablet landscape](docs/screenshots/tablet/02-landscape-movies.jpg) | ![Phone landscape](docs/screenshots/phone/08-landscape.jpg) |
+| ![Tablet portrait](docs/screenshots/tablet/08-portrait.jpg) | ![Tablet landscape](docs/screenshots/tablet/07-live.jpg) | ![Phone landscape](docs/screenshots/phone/08-landscape.jpg) |
 
 - **Tabletop:** half-fold a foldable with the hinge horizontal during playback. The
   picture moves above the hinge and the controls stay visible on the flat half.
@@ -172,7 +172,7 @@ clones or checks out exactly that commit, as CI does.
 ## Testing
 
 ```sh
-pnpm test                      # typecheck + 33 unit tests
+pnpm test                      # typecheck + 82 unit tests
 ```
 
 The **unit tests** (`tests/unit`) cover:
@@ -197,29 +197,31 @@ HOST=0.0.0.0 PORT=3210 NODE_ENV=development pnpm tsx --tsconfig tsconfig.base.js
 pnpm run test:e2e:tv           # Android TV emulator (emulator-5556)
 pnpm run test:e2e:phone        # phone emulator (emulator-5554)
 FORM=fold node --test tests/e2e/app.e2e.mjs   # Pixel Fold emulator (emulator-5558)
+pnpm run test:e2e:tablet       # Pixel Tablet emulator (emulator-5560)
 ./scripts/optimize-screenshots.sh             # refresh the README images
 ```
 
 The suites cover:
 
-| Area | TV | Phone | Fold |
-| --- | :---: | :---: | :---: |
-| Fresh install uses the on-device backend; layout and size class are correct with no horizontal overflow | ✔ | ✔ | ✔ |
-| Add a Stalker portal through the form; home, movies and series load | ✔ | ✔ | ✔ |
-| Rail slides open and shut | ✔ | ✔ | ✔ |
-| Category panel slides in and fully out | ✔ | ✔ | ✔ |
-| Episode plays (auto-landscape on phone) | ✔ | ✔ | ✔ |
-| Quick menu sets speed, Back closes it | ✔ | ✔ | ✔ |
-| Speed button appears in the control row by itself and cycles 1× … 3× → 1× | ✔ | ✔ | ✔ |
-| ← / ↑ at the rail's edge keep focus in the open rail | ✔ | | |
-| Remote tap/OK, ↑ shows and Back hides the controls, hold-to-scan (also with the controls up), Back leaves | ✔ | | |
-| Progress bar by D-pad (2% per press); 5 jumps to the middle; quick-menu jumps repeat | ✔ | | |
-| Control row does not move while speed, skips or pause change | ✔ | ✔ | ✔ |
-| Live plays; ↓ and CH− zap stay in fullscreen, also with the controls showing | ✔ | ✔ (plays) | ✔ (plays) |
-| Rotation (phone); fold → cover → unfold; tabletop | | ✔ | ✔ |
+| Area | TV | Phone | Fold | Tablet |
+| --- | :---: | :---: | :---: | :---: |
+| Fresh install uses the on-device backend; layout and size class are correct with no horizontal overflow | ✔ | ✔ | ✔ | ✔ |
+| Add a Stalker portal through the form; home, movies and series load | ✔ | ✔ | ✔ | ✔ |
+| Rail slides open and shut | ✔ | ✔ | ✔ | ✔ |
+| Category panel slides in and fully out | ✔ | ✔ | ✔ | ✔ |
+| Episode plays (auto-landscape on phone) | ✔ | ✔ | ✔ | ✔ |
+| Quick menu sets speed, Back closes it | ✔ | ✔ | ✔ | ✔ |
+| Speed button appears in the control row by itself and cycles 1× … 3× → 1× | ✔ | ✔ | ✔ | ✔ |
+| ← / ↑ at the rail's edge keep focus in the open rail | ✔ | | | |
+| Remote tap/OK, ↑ shows and Back hides the controls, hold-to-scan (also with the controls up), Back leaves | ✔ | | | |
+| Progress bar by D-pad (2% per press); 5 jumps to the middle; quick-menu jumps repeat | ✔ | | | |
+| Control row does not move while speed, skips or pause change | ✔ | ✔ | ✔ | ✔ |
+| Live plays; ↓ and CH− zap stay in fullscreen, also with the controls showing | ✔ | ✔ (plays) | ✔ (plays) | ✔ (plays) |
+| Rotation (phone, tablet); fold → cover → unfold; tabletop | | ✔ | ✔ | ✔ |
 
-Last run: TV 20/20, phone 14/14, fold 15/15, unit 57/57, sample portal 13/13, experience audit
-81/81 on TV, touch audit 101/101 phone, 101/101 tablet, 94/94 fold. The TV suite also passes on a
+Last run, on the client built from the pinned commit: TV 20/20, phone 14/14, fold 15/15,
+tablet 14/14, unit 82/82. Earlier runs: sample portal 13/13, experience audit 81/81 on TV,
+touch audit 101/101 phone, 101/101 tablet, 94/94 fold. The TV suite also passes on a
 real NVIDIA SHIELD Android TV (Android 11, WebView 156) against the mock portal on the LAN:
 `FORM=tv SERIAL=<ip>:5555 MOCK_PORTAL=http://<mac-ip>:3210/stalker_portal/server/load.php`.
 

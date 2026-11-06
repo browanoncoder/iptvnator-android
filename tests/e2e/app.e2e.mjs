@@ -3,6 +3,7 @@
 //   FORM=tv    SERIAL=emulator-5556 node --test tests/e2e/app.e2e.mjs
 //   FORM=phone SERIAL=emulator-5554 node --test tests/e2e/app.e2e.mjs
 //   FORM=fold  SERIAL=emulator-5558 node --test tests/e2e/app.e2e.mjs   (Pixel Fold AVD)
+//   FORM=tablet SERIAL=emulator-5560 node --test tests/e2e/app.e2e.mjs  (Pixel Tablet AVD)
 //
 // Requires the IPTVnator Stalker mock on the host (see README "Testing").
 // Screenshots for the README are written to docs/screenshots/<form>/.
@@ -12,7 +13,7 @@ import { mkdirSync } from 'node:fs';
 import { adb, Device, sleep } from './device.mjs';
 
 const FORM = process.env.FORM ?? 'tv';
-const SERIAL = process.env.SERIAL ?? { tv: 'emulator-5556', phone: 'emulator-5554', fold: 'emulator-5558' }[FORM];
+const SERIAL = process.env.SERIAL ?? { tv: 'emulator-5556', phone: 'emulator-5554', fold: 'emulator-5558', tablet: 'emulator-5560' }[FORM];
 const PORTAL = process.env.MOCK_PORTAL ?? 'http://10.0.2.2:3210/stalker_portal/server/load.php';
 // "is-series" scenario: VOD rows carry is_series=1, like many real Ministra portals.
 const MAC = process.env.MOCK_MAC ?? '00:1A:79:00:00:04';
@@ -20,13 +21,17 @@ const SHOTS = `docs/screenshots/${FORM}`;
 const isTv = FORM === 'tv';
 const isPhone = FORM === 'phone';
 const isFold = FORM === 'fold';
-// Layout viewport per device: TV 1920, compact phone 600, unfolded fold = its own width (841dp).
-const EXPECTED_WIDTH = { tv: 1920, phone: 600, fold: 841 }[FORM];
+const isTablet = FORM === 'tablet';
+// Large screens (unfolded fold, tablet) lay out at their own width.
+const isLarge = isFold || isTablet;
+// Layout viewport per device: TV 1920, compact phone 600, unfolded fold and
+// landscape tablet = their own width (841dp, 1280dp).
+const EXPECTED_WIDTH = { tv: 1920, phone: 600, fold: 841, tablet: 1280 }[FORM];
 
 // WebView rounds the viewport to whole device pixels (e.g. 841 → 840 at 2.625x).
 const widthIs = (width) => `Math.abs(innerWidth - ${width}) <= 2`;
 
-const device = new Device(SERIAL, { tv: 9333, phone: 9334, fold: 9335 }[FORM]);
+const device = new Device(SERIAL, { tv: 9333, phone: 9334, fold: 9335, tablet: 9336 }[FORM]);
 const shot = (name) => device.screenshot(`${SHOTS}/${name}.png`);
 
 async function playingVideo() {
@@ -60,7 +65,7 @@ describe(`IPTVnator Android (${FORM}, ${SERIAL})`, () => {
             overflow: document.scrollingElement.scrollWidth - innerWidth })`);
         assert.ok(Math.abs(layout.width - EXPECTED_WIDTH) <= 2, `viewport ${layout.width}px, expected ${EXPECTED_WIDTH}px`);
         assert.match(layout.classes, isTv ? /form-tv/ : /form-handheld/);
-        assert.match(layout.classes, isTv || isFold ? /size-(medium|expanded)/ : /size-compact/);
+        assert.match(layout.classes, isTv || isLarge ? /size-(medium|expanded)/ : /size-compact/);
         assert.ok(layout.overflow <= 1, `page scrolls horizontally by ${layout.overflow}px`);
     });
 
@@ -180,7 +185,7 @@ describe(`IPTVnator Android (${FORM}, ${SERIAL})`, () => {
             // Compact phones turn to landscape for fullscreen playback.
             assert.equal(await device.eval('innerWidth'), 1280);
         }
-        if (isFold) {
+        if (isLarge) {
             // Large screens keep the user's orientation.
             assert.ok(await device.eval(widthIs(EXPECTED_WIDTH)));
         }
@@ -370,7 +375,8 @@ describe(`IPTVnator Android (${FORM}, ${SERIAL})`, () => {
         if (!isTv) await device.waitFor(widthIs(EXPECTED_WIDTH), 10000);
         await device.nav('TV');
         await device.click('main button', '→$', 30000);
-        await device.click('main button', 'Live channel', 30000);
+        // Channel rows are numbered ("01 …"); older clients labelled them "Live channel".
+        await device.click('main button', 'Live channel|^\\d{2}\\D', 30000);
         await playingVideo();
         await sleep(2000);
         shot('07-live');
@@ -418,6 +424,31 @@ describe(`IPTVnator Android (${FORM}, ${SERIAL})`, () => {
             await device.waitFor(widthIs(EXPECTED_WIDTH), 15000);
             await sleep(1000);
             shot('14-unfolded');
+        });
+    }
+
+    if (isTablet) {
+        test('tablet: portrait uses the 840px medium layout and landscape returns to 1280px', async () => {
+            // Pixel Tablet's natural orientation is landscape; a quarter turn is portrait.
+            const rotate = (quarterTurns) => {
+                adb(SERIAL, 'shell', 'settings', 'put', 'system', 'accelerometer_rotation', '0');
+                adb(SERIAL, 'shell', 'settings', 'put', 'system', 'user_rotation', String(quarterTurns));
+            };
+            try {
+                rotate(1);
+                await device.waitFor(widthIs(840), 10000);
+                await sleep(1500);
+                const portrait = await device.eval(`({ classes: document.documentElement.className,
+                    overflow: document.scrollingElement.scrollWidth - innerWidth })`);
+                shot('08-portrait');
+                assert.match(portrait.classes, /portrait/);
+                assert.match(portrait.classes, /size-medium/);
+                assert.ok(portrait.overflow <= 1, `portrait scrolls horizontally by ${portrait.overflow}px`);
+            } finally {
+                rotate(0);
+            }
+            await device.waitFor(widthIs(EXPECTED_WIDTH), 10000);
+            assert.match(await device.eval('document.documentElement.className'), /size-expanded/);
         });
     }
 

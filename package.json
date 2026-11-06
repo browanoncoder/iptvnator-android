@@ -12,6 +12,7 @@
         "test:unit": "esbuild tests/unit/*.test.ts --bundle --platform=node --format=esm --outdir=build/unit --out-extension:.js=.mjs --log-level=warning && node --test \"build/unit/*.test.mjs\"",
         "test:e2e:tv": "FORM=tv node --test tests/e2e/app.e2e.mjs",
         "test:e2e:phone": "FORM=phone node --test tests/e2e/app.e2e.mjs",
+        "test:e2e:tablet": "FORM=tablet node --test tests/e2e/app.e2e.mjs",
         "test": "npm run typecheck && npm run test:unit",
         "build:client": "node scripts/build-client.mjs",
         "build:release": "npm run sync && cd android && ./gradlew assembleRelease -q"
