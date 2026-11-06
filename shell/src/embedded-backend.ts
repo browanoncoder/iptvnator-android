@@ -8,6 +8,7 @@
  * set the Cookie / User-Agent headers MAG portals require and is not subject
  * to CORS. Header and URL construction is shared with the real backend.
  */
+import { createBulkEpg, isBulkEpg } from './epg-bulk';
 import { createChannelLocks, DEFAULT_PIN, markLockedChannels, portalPin } from './channel-lock';
 import { requestPin } from './pin-prompt';
 import { createPagePrefetcher, prefetchKey } from './series-prefetch';
@@ -21,7 +22,7 @@ import { categoryVariants, isEmptyList, withoutSeriesModule } from './stalker-ca
 
 export const EMBEDDED_BACKEND_URL = 'http://iptvnator.device';
 
-const TIMEOUT_MS = { stalker: 20000, createLink: 30000, xtream: 30000, playlist: 120000 };
+const TIMEOUT_MS = { stalker: 20000, createLink: 30000, epgBulk: 90000, xtream: 30000, playlist: 120000 };
 
 type Query = URLSearchParams;
 type RouteResult = { status: number; body: unknown };
@@ -104,7 +105,7 @@ async function stalker(query: Query, signal?: AbortSignal): Promise<RouteResult>
         const response = await nativeGet(buildStalkerRequestUrl(url, identity.requestParams), {
             headers,
             signal: abort,
-            timeoutMs: variant['action'] === 'create_link' ? TIMEOUT_MS.createLink : TIMEOUT_MS.stalker,
+            timeoutMs: variant['action'] === 'create_link' ? TIMEOUT_MS.createLink : isBulkEpg(variant) ? TIMEOUT_MS.epgBulk : TIMEOUT_MS.stalker,
         });
         return response.data;
     };
@@ -115,7 +116,9 @@ async function stalker(query: Query, signal?: AbortSignal): Promise<RouteResult>
         const series = prefetchKey(params);
         const answer = series
             ? await episodePages.get(`${url}|${macAddress}|${series}`, Number(params['p'] ?? 1) || 1, (p, abort) => send({ ...params, p }, abort), signal)
-            : await filteredList(url, params, send);
+            : isBulkEpg(params)
+              ? await guideEpg.get(`${portal}|${params['period'] ?? ''}`, (abort) => send(params, abort))
+              : await filteredList(url, params, send);
         return ok({ action: query.get('action'), payload: withoutSeriesModule(params, lockChannels(portal, params, answer)) });
     } catch (error) {
         return providerFailure(error);
@@ -156,6 +159,9 @@ async function pinGate(
     }
     return ok({ status: 403, message: 'This channel is locked. Enter the parental PIN to watch it.' });
 }
+
+/** The whole-guide EPG, downloaded once in the background (epg-bulk.ts). */
+const guideEpg = createBulkEpg();
 
 /** Episode / season pages of the title being opened, fetched ahead (series-prefetch.ts). */
 const episodePages = createPagePrefetcher({ concurrency: 4 });

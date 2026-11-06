@@ -73,6 +73,10 @@ One app for TV, phone, foldable and tablet, with the same navigation everywhere.
 - **Long series open about 3× faster:** the on-device backend fetches a season's remaining
   episode pages four at a time as soon as the first page arrives (a 74-page daily series on
   a real portal: about 21 s → 6 s before the episode list shows).
+- **TV guide fills on large portals:** the guide's 7-day download for every channel took
+  longer than each row's 10 s limit, so every row was cancelled in turn and stayed on
+  "Loading programme…". It now downloads once in the background; meanwhile each row asks
+  for its own channel's next programmes (real portal: never → all rows in about 5 s).
 - **Phones: filters fold behind one "Filters" button** next to the search field, which counts
   the filters that are on and closes after a pick; the source picker becomes a compact chip
   beside the page title. On every touch screen the source picker and filters step aside
