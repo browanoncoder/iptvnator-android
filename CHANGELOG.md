@@ -3,7 +3,7 @@
 All notable changes to IPTVnator for Android. Versions follow [SemVer](https://semver.org);
 the Android `versionCode` is derived from it (`major·10000 + minor·100 + patch`).
 
-## [0.2.0] - 2026-11-04
+## [0.2.0] - 2026-11-06
 
 One app for TV, phone, foldable and tablet, with the same navigation everywhere.
 
@@ -32,8 +32,8 @@ One app for TV, phone, foldable and tablet, with the same navigation everywhere.
   otherwise consumes them; some TVs, e.g. the NVIDIA SHIELD, keep Menu and Guide for the system).
 - Phone-sized TV guide, compact episode cards, full-width filters and scrollable
   settings categories in portrait.
-- Test suites: 45 unit tests (on-device backend routes, gestures, zapping, quick-menu
-  focus, form factor, posture) and E2E suites for TV, phone and foldable.
+- Test suites: 82 unit tests (on-device backend routes, gestures, zapping, quick-menu
+  focus, form factor, posture) and E2E suites for TV, phone, foldable and tablet.
 - Release pipeline: version from `package.json`, release signing, CI and tagged
   GitHub releases.
 - **Speed button** in the player's control row (TV and touch): OK or tap steps through
