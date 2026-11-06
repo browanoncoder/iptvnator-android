@@ -1,4 +1,17 @@
+import groovy.json.JsonSlurper
+
 apply plugin: 'com.android.application'
+
+// One version for the whole app, from package.json ("npm version minor" bumps it).
+def appVersion = new JsonSlurper().parse(rootProject.file('../package.json')).version
+def (vMajor, vMinor, vPatch) = appVersion.tokenize('.-').take(3).collect { it.toInteger() }
+
+// Release signing: environment (CI) or android/keystore.properties (local, git-ignored).
+def keystoreProps = new Properties()
+def keystoreFile = rootProject.file('keystore.properties')
+if (keystoreFile.exists()) keystoreFile.withInputStream { keystoreProps.load(it) }
+def signingValue = { String env, String prop -> System.getenv(env) ?: keystoreProps.getProperty(prop) }
+def releaseStore = signingValue('IPTVNATOR_KEYSTORE', 'storeFile')
 
 android {
     namespace "com.iptvnator.androidtv.sample"
@@ -7,8 +20,8 @@ android {
         applicationId "com.iptvnator.androidtv.sample"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
-        versionCode 1
-        versionName "1.0"
+        versionCode vMajor * 10000 + vMinor * 100 + vPatch
+        versionName appVersion
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
         aaptOptions {
              // Files and dirs to omit from the packaged assets dir, modified to accommodate modern web apps.
@@ -16,8 +29,19 @@ android {
             ignoreAssetsPattern '!.svn:!.git:!.ds_store:!*.scc:.*:!CVS:!thumbs.db:!picasa.ini:!*~'
         }
     }
+    signingConfigs {
+        release {
+            if (releaseStore) {
+                storeFile file(releaseStore)
+                storePassword signingValue('IPTVNATOR_KEYSTORE_PASSWORD', 'storePassword')
+                keyAlias signingValue('IPTVNATOR_KEY_ALIAS', 'keyAlias')
+                keyPassword signingValue('IPTVNATOR_KEY_PASSWORD', 'keyPassword')
+            }
+        }
+    }
     buildTypes {
         release {
+            if (releaseStore) signingConfig signingConfigs.release
             minifyEnabled false
             proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
         }
@@ -36,6 +60,9 @@ dependencies {
     implementation "androidx.coordinatorlayout:coordinatorlayout:$androidxCoordinatorLayoutVersion"
     implementation "androidx.core:core-splashscreen:$coreSplashScreenVersion"
     implementation project(':capacitor-android')
+    // Fold posture (tabletop playback) on foldables.
+    implementation "androidx.window:window:1.3.0"
+    implementation "androidx.window:window-java:1.3.0"
     testImplementation "junit:junit:$junitVersion"
     androidTestImplementation "androidx.test.ext:junit:$androidxJunitVersion"
     androidTestImplementation "androidx.test.espresso:espresso-core:$androidxEspressoCoreVersion"

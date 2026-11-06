@@ -1,0 +1,59 @@
+name: CI
+
+on:
+    push:
+        branches: [main]
+    pull_request:
+
+permissions:
+    contents: read
+
+concurrency:
+    group: ci-${{ github.ref }}
+    cancel-in-progress: true
+
+jobs:
+    build:
+        name: Typecheck, unit tests, debug APK
+        runs-on: ubuntu-latest
+        steps:
+            - uses: actions/checkout@v4
+
+            # The shell imports IPTVnator's shared request builders from ../iptvnator,
+            # so the pinned client is checked out next to this repository.
+            - name: Client checkout location
+              run: echo "IPTVNATOR_DIR=$(dirname "$GITHUB_WORKSPACE")/iptvnator" >> "$GITHUB_ENV"
+
+            - uses: pnpm/action-setup@v4
+
+            - uses: actions/setup-node@v4
+              with:
+                  node-version: 24
+                  cache: pnpm
+
+            - uses: actions/setup-java@v4
+              with:
+                  distribution: temurin
+                  java-version: 21
+                  cache: gradle
+
+            - name: Install shell dependencies
+              run: pnpm install --frozen-lockfile
+
+            - name: Build the pinned IPTVnator TV client
+              run: node scripts/build-client.mjs --checkout
+
+            - name: Typecheck
+              run: pnpm run typecheck
+
+            - name: Unit tests
+              run: pnpm run test:unit
+
+            - name: Build debug APK
+              run: pnpm run build:apk
+
+            - uses: actions/upload-artifact@v4
+              with:
+                  name: iptvnator-android-debug-${{ github.sha }}
+                  path: android/app/build/outputs/apk/debug/app-debug.apk
+                  retention-days: 14

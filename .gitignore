@@ -11,3 +11,11 @@ android/capacitor-cordova-android-plugins/
 .DS_Store
 .omc/
 build/
+
+# Release signing (never commit)
+android/keystore.properties
+*.keystore
+*.jks
+
+# Raw E2E screenshots; the README uses the optimized .jpg copies
+docs/screenshots/**/*.png

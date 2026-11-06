@@ -1,0 +1,5 @@
+{
+    "repository": "https://github.com/4gray/iptvnator.git",
+    "ref": "de6030136ff49641579d3cdf7f158b01ef04872b",
+    "note": "IPTVnator commit whose TV client (apps/tv) this shell is built and tested against. Bump deliberately and re-run the E2E suites."
+}

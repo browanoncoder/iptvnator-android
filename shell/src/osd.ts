@@ -31,7 +31,7 @@ function ensureRoot(): HTMLDivElement {
     return root;
 }
 
-export function showOsd(title: string, detail?: string, progress?: number): void {
+export function showOsd(title: string, detail?: string, progress?: number, hideAfterMs: number = HIDE_AFTER_MS): void {
     const el = ensureRoot();
     el.textContent = '';
     el.append(title);
@@ -50,5 +50,5 @@ export function showOsd(title: string, detail?: string, progress?: number): void
     }
     el.classList.add('on');
     clearTimeout(timer);
-    timer = setTimeout(() => el.classList.remove('on'), HIDE_AFTER_MS);
+    timer = setTimeout(() => el.classList.remove('on'), hideAfterMs);
 }

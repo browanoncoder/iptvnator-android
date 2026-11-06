@@ -8,16 +8,21 @@
  * set the Cookie / User-Agent headers MAG portals require and is not subject
  * to CORS. Header and URL construction is shared with the real backend.
  */
+import { createBulkEpg, isBulkEpg } from './epg-bulk';
+import { createChannelLocks, DEFAULT_PIN, markLockedChannels, portalPin } from './channel-lock';
+import { requestPin } from './pin-prompt';
+import { createPagePrefetcher, prefetchKey } from './series-prefetch';
 import parser from 'iptv-playlist-parser';
 import { buildStalkerIdentityRequestContext } from '../../../iptvnator/libs/shared/interfaces/src/lib/stalker-request-identity.util';
 import { buildStalkerRequestUrl } from '../../../iptvnator/libs/shared/interfaces/src/lib/stalker-request-url.util';
 import { normalizeXtreamServerUrl } from '../../../iptvnator/libs/shared/interfaces/src/lib/xtream-portal.utils';
 import { createPlaylistObject } from '../../../iptvnator/libs/shared/m3u-utils/src';
 import { nativeGet, NativeHttpError } from './native-http';
+import { categoryVariants, isEmptyList, withoutSeriesModule } from './stalker-category';
 
 export const EMBEDDED_BACKEND_URL = 'http://iptvnator.device';
 
-const TIMEOUT_MS = { stalker: 20000, createLink: 30000, xtream: 30000, playlist: 120000 };
+const TIMEOUT_MS = { stalker: 20000, createLink: 30000, epgBulk: 90000, xtream: 30000, playlist: 120000 };
 
 type Query = URLSearchParams;
 type RouteResult = { status: number; body: unknown };
@@ -88,24 +93,102 @@ async function stalker(query: Query, signal?: AbortSignal): Promise<RouteResult>
         'skipConnectionGuard',
     ]);
     if (params['action'] === 'handshake' && token) params['token'] = token;
-    const identity = buildStalkerIdentityRequestContext({
-        macAddress,
-        params,
-        ...(token ? { token } : {}),
-        ...(serialNumber ? { serialNumber } : {}),
-    });
-    const headers = { ...identity.headers };
-    if (!macAddress) delete headers['Cookie'];
-    try {
+    const send = async (variant: Record<string, string | number>, abort: AbortSignal | undefined = signal) => {
+        const identity = buildStalkerIdentityRequestContext({
+            macAddress,
+            params: variant,
+            ...(token ? { token } : {}),
+            ...(serialNumber ? { serialNumber } : {}),
+        });
+        const headers = { ...identity.headers };
+        if (!macAddress) delete headers['Cookie'];
         const response = await nativeGet(buildStalkerRequestUrl(url, identity.requestParams), {
             headers,
-            signal,
-            timeoutMs: params['action'] === 'create_link' ? TIMEOUT_MS.createLink : TIMEOUT_MS.stalker,
+            signal: abort,
+            timeoutMs: variant['action'] === 'create_link' ? TIMEOUT_MS.createLink : isBulkEpg(variant) ? TIMEOUT_MS.epgBulk : TIMEOUT_MS.stalker,
         });
-        return ok({ action: query.get('action'), payload: response.data });
+        return response.data;
+    };
+    const portal = `${url}|${macAddress}`;
+    try {
+        const blocked = await pinGate(portal, params, send, signal);
+        if (blocked) return blocked;
+        const series = prefetchKey(params);
+        const answer = series
+            ? await episodePages.get(`${url}|${macAddress}|${series}`, Number(params['p'] ?? 1) || 1, (p, abort) => send({ ...params, p }, abort), signal)
+            : isBulkEpg(params)
+              ? await guideEpg.get(`${portal}|${params['period'] ?? ''}`, (abort) => send(params, abort))
+              : await filteredList(url, params, send);
+        return ok({ action: query.get('action'), payload: withoutSeriesModule(params, lockChannels(portal, params, answer)) });
     } catch (error) {
         return providerFailure(error);
     }
+}
+
+/** Password-protected live channels (channel-lock.ts). */
+const channelLocks = createChannelLocks();
+const portalPins = new Map<string, string>();
+
+/** Marks locked channels in live channel lists and remembers them. */
+function lockChannels(portal: string, params: Record<string, string | number>, answer: unknown): unknown {
+    const action = params['action'];
+    if (params['type'] !== 'itv' || (action !== 'get_ordered_list' && action !== 'get_all_channels')) return answer;
+    const { payload, lockedCmds } = markLockedChannels(answer);
+    channelLocks.remember(portal, lockedCmds);
+    return payload;
+}
+
+/** Holds a locked channel's stream link until the parental PIN is entered; an answer when it stays locked. */
+async function pinGate(
+    portal: string,
+    params: Record<string, string | number>,
+    send: (variant: Record<string, string | number>) => Promise<unknown>,
+    signal?: AbortSignal
+): Promise<RouteResult | undefined> {
+    if (params['type'] !== 'itv' || params['action'] !== 'create_link') return undefined;
+    if (!channelLocks.needsPin(portal, String(params['cmd'] ?? ''))) return undefined;
+    let pin = portalPins.get(portal);
+    if (pin === undefined) {
+        pin = await send({ type: 'stb', action: 'get_profile' }).then(portalPin, () => DEFAULT_PIN);
+        portalPins.set(portal, pin);
+    }
+    const expected = pin;
+    if (await requestPin((entered) => entered === expected, signal)) {
+        channelLocks.unlock(portal);
+        return undefined;
+    }
+    return ok({ status: 403, message: 'This channel is locked. Enter the parental PIN to watch it.' });
+}
+
+/** The whole-guide EPG, downloaded once in the background (epg-bulk.ts). */
+const guideEpg = createBulkEpg();
+
+/** Episode / season pages of the title being opened, fetched ahead (series-prefetch.ts). */
+const episodePages = createPagePrefetcher({ concurrency: 4 });
+
+/** Which category-filter form each portal category answered to (see stalker-category.ts). */
+const categoryForm = new Map<string, number>();
+
+async function filteredList(
+    url: string,
+    params: Record<string, string | number>,
+    send: (variant: Record<string, string | number>) => Promise<unknown>
+): Promise<unknown> {
+    const forms = categoryVariants(params);
+    if (!forms.length) return send(params);
+    const key = `${url}|${params['type']}|${params['category']}`;
+    const known = categoryForm.get(key);
+    if (known !== undefined) return send(forms[known]);
+    let first: unknown;
+    for (let i = 0; i < forms.length; i++) {
+        const answer = await send(forms[i]);
+        if (!isEmptyList(answer)) {
+            categoryForm.set(key, i);
+            return answer;
+        }
+        if (i === 0) first = answer;
+    }
+    return first;
 }
 
 async function xtream(query: Query, signal?: AbortSignal): Promise<RouteResult> {
@@ -168,7 +251,8 @@ async function parsePlaylist(query: Query, signal?: AbortSignal): Promise<RouteR
     }
 }
 
-async function route(method: string, url: URL, body: unknown, signal?: AbortSignal): Promise<RouteResult> {
+/** Answers one embedded-backend request; exported for tests. */
+export async function route(method: string, url: URL, body: unknown, signal?: AbortSignal): Promise<RouteResult> {
     switch (`${method} ${url.pathname}`) {
         case 'GET /tv/connection':
             return ok({ service: 'iptvnator', protocol: 1, pairing: true, auth: 'none' });

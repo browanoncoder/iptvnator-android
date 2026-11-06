@@ -1,13 +1,28 @@
 /**
  * Android shell bootstrap. Runs before the TV client and:
  *  1. answers backend requests on-device (no server needed),
- *  2. wires Back, media keys, keep-screen-on and playback gestures,
+ *  2. picks the TV or phone layout and adds the shared chrome: slide-in
+ *     navigation rail, player quick menu, playback gestures, channel zapping,
+ *     Back, media keys and keep-screen-on,
  *  3. points fresh/unconfigured installs at the on-device backend,
  *  4. then starts the TV client.
  */
 import { EMBEDDED_BACKEND_URL, installEmbeddedBackend } from './embedded-backend';
+import { installFormFactor } from './form-factor';
+import { installNavRail } from './nav-rail';
 import { installPlayerGestures } from './player-gestures';
+import { installPlayerState } from './player-state';
+import { installPosture } from './posture';
+import { installQuickMenu } from './quick-menu';
+import { installSheetMotion } from './sheet-motion';
+import { installSpeedButton } from './speed-button';
+import { installSeekBar } from './seek-bar';
+import { installControlsVisibility } from './controls-visibility';
+import { installRemoteKeys } from './remote-keys';
 import { installTvPlatform } from './tv-platform';
+import { installTouchHints } from './touch-hints';
+import { installPinPrompt } from './pin-prompt';
+import { installFilterPanel } from './filter-panel';
 
 const USER_DB = 'iptvnator-tv-user-data';
 const USER_DB_VERSION = 1;
@@ -57,7 +72,27 @@ function startClient(): void {
     document.head.appendChild(script);
 }
 
+function whenBodyReady(run: () => void): void {
+    if (document.body) run();
+    else document.addEventListener('DOMContentLoaded', run, { once: true });
+}
+
 installEmbeddedBackend();
+const formFactor = installFormFactor();
+installPinPrompt();
+installQuickMenu();
 installPlayerGestures();
 installTvPlatform();
+installPosture();
+whenBodyReady(() => {
+    installNavRail(formFactor);
+    installPlayerState(formFactor);
+    installSheetMotion();
+    installSpeedButton();
+    installSeekBar();
+    installControlsVisibility();
+    installRemoteKeys();
+    installTouchHints();
+    installFilterPanel();
+});
 ensureEmbeddedBackend().finally(startClient);

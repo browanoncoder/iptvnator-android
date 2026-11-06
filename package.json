@@ -1,23 +1,31 @@
 {
-  "name": "iptvnator-android",
-  "private": true,
-  "version": "0.1.0",
-  "description": "Experimental Capacitor wrapper of the IPTVnator TV client for Android TV",
-  "scripts": {
-    "build:shell": "esbuild shell/src/main.ts --bundle --format=iife --target=chrome80 --minify --outfile=build/shell.js",
-    "sync:web": "npm run build:shell && node shell/prepare-web.mjs",
-    "sync": "npm run sync:web && cap sync android",
-    "build:apk": "npm run sync && cd android && ./gradlew assembleDebug -q",
-    "typecheck": "tsc -p shell/tsconfig.json --noEmit"
-  },
-  "dependencies": {
-    "@capacitor/android": "^7.6.10",
-    "@capacitor/core": "^7.6.10"
-  },
-  "devDependencies": {
-    "@capacitor/cli": "^7.6.10",
-    "esbuild": "0.25.12",
-    "iptv-playlist-parser": "github:4gray/iptv-playlist-parser#v0.15.2-iptvnator.2",
-    "typescript": "5.8.3"
-  }
+    "name": "iptvnator-android",
+    "private": true,
+    "version": "0.2.0",
+    "description": "Experimental Capacitor wrapper of the IPTVnator TV client for Android TV",
+    "scripts": {
+        "build:shell": "esbuild shell/src/main.ts --bundle --format=iife --target=chrome80 --minify --outfile=build/shell.js",
+        "sync:web": "npm run build:shell && node shell/prepare-web.mjs",
+        "sync": "npm run sync:web && cap sync android",
+        "build:apk": "npm run sync && cd android && ./gradlew assembleDebug -q",
+        "typecheck": "tsc -p shell/tsconfig.json --noEmit",
+        "test:unit": "esbuild tests/unit/*.test.ts --bundle --platform=node --format=esm --outdir=build/unit --out-extension:.js=.mjs --log-level=warning && node --test \"build/unit/*.test.mjs\"",
+        "test:e2e:tv": "FORM=tv node --test tests/e2e/app.e2e.mjs",
+        "test:e2e:phone": "FORM=phone node --test tests/e2e/app.e2e.mjs",
+        "test:e2e:tablet": "FORM=tablet node --test tests/e2e/app.e2e.mjs",
+        "test": "npm run typecheck && npm run test:unit",
+        "build:client": "node scripts/build-client.mjs",
+        "build:release": "npm run sync && cd android && ./gradlew assembleRelease -q"
+    },
+    "dependencies": {
+        "@capacitor/android": "^7.6.10",
+        "@capacitor/core": "^7.6.10"
+    },
+    "devDependencies": {
+        "@capacitor/cli": "^7.6.10",
+        "esbuild": "0.25.12",
+        "iptv-playlist-parser": "github:4gray/iptv-playlist-parser#v0.15.2-iptvnator.2",
+        "typescript": "5.8.3"
+    },
+    "packageManager": "pnpm@10.33.0"
 }
